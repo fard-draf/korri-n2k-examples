@@ -1,0 +1,87 @@
+# Shell propre
+set shell := ["zsh", "-uc"]
+set dotenv-load := true
+
+# Variables générales
+target       := "thumbv7em-none-eabihf"
+chip         := "STM32G431CBUx"
+profile      := "release"        # release ou debug
+defmt_level  := "trace"          # default DEFMT_LOG
+default_bin  := "stm32-g431-cbu6"           # fallback
+
+# Recette par défaut : liste
+default:
+    @just --list
+
+# ------------------------------------------------------------
+# BUILD
+# ------------------------------------------------------------
+
+build bin=default_bin profile=profile:
+    DEFMT_LOG="${DEFMT_LOG:-{{defmt_level}}}" \
+    cargo build --{{profile}} --bin {{bin}}
+
+# ------------------------------------------------------------
+# RUN (flash + RTT via cargo runner)
+# ------------------------------------------------------------
+
+# run flash + rtt via cargo runner
+run bin=default_bin profile=profile:
+    cargo clean 
+    DEFMT_LOG="${DEFMT_LOG:-{{defmt_level}}}" \
+    cargo run --{{profile}} --bin {{bin}}
+
+# DEFMT_LOG=debug cargo run --release
+
+# Penser a definir correctement les variables dans .cargo/config.toml
+# Exemple :
+#   just run talker
+#   just run receiver profile=debug
+#   DEFMT_LOG=trace just run feeder
+
+# ------------------------------------------------------------
+# FLASH (manuel si besoin)
+# ------------------------------------------------------------
+
+# Flash via cargo flash
+flash bin=default_bin:
+    cargo flash --chip {{chip}} --release --target {{target}} --bin {{bin}}
+
+# ------------------------------------------------------------
+# RTT
+# ------------------------------------------------------------
+
+# Rtt
+rtt:
+    cargo embed
+
+# ------------------------------------------------------------
+# SIZE
+# ------------------------------------------------------------
+
+# Cargo size
+size bin=default_bin profile=profile:
+    cargo size --target {{target}} --{{profile}} --bin {{bin}} -- -A
+
+# ------------------------------------------------------------
+# CLEAN / LINT
+# ------------------------------------------------------------
+
+# Cargo clean
+clean:
+    cargo clean
+
+# Cargo fmt + Cargo clippy -D warnings
+fmt:
+    cargo fmt
+    cargo clippy --target {{target}} -- -D warnings
+
+# ------------------------------------------------------------
+# RUN avec override explicite du niveau DEFMT
+# usage : just run-log talker trace
+# ------------------------------------------------------------
+
+# Runner bin + loglevel
+run-log bin=default_bin level="debug" profile=profile:
+    DEFMT_LOG="{{level}}" \
+    cargo run --{{profile}} --bin {{bin}}

@@ -1,5 +1,5 @@
 [package]
-name = "stm32-g431-cbu6"
+name = "g431-cbu6"
 version = "0.1.0"
 edition = "2024"
 

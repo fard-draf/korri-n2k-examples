@@ -1,0 +1,45 @@
+set shell := ["zsh", "-uc"]
+set dotenv-load := true
+
+# Variables générales
+profile      := "release"         # "debug" ou "release"
+defmt_level  := "trace"           # valeur par défaut de DEFMT_LOG
+default_bin  := "talker_fight3"   # binaire fallback
+
+# Recette par défaut : liste
+default:
+    @just --list
+
+# ------------------------------------------------------------
+# BUILD
+# ------------------------------------------------------------
+
+# Build d'un seul binaire, pas tout le repo
+build bin=default_bin profile=profile:
+    DEFMT_LOG="${DEFMT_LOG:-{{defmt_level}}}" \
+    cargo build --{{profile}} --bin {{bin}}
+
+# ------------------------------------------------------------
+# RUN (utilise le runner défini dans .cargo/config.toml)
+# ------------------------------------------------------------
+
+run bin=default_bin profile=profile:
+    DEFMT_LOG="${DEFMT_LOG:-{{defmt_level}}}" \
+    cargo run --{{profile}} --bin {{bin}}
+
+# Exemples :
+#   just run                # -> talker_fight3
+#   just run talker_fight2  # -> binaire src/bin/talker_fight2.rs
+#   just run talker_fight3 profile=debug
+#   DEFMT_LOG=debug just run talker_fight3
+
+# ------------------------------------------------------------
+# CLEAN / LINT
+# ------------------------------------------------------------
+
+clean:
+    cargo clean
+
+fmt:
+    cargo fmt
+    cargo clippy -- -D warnings

@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use defmt::{info, warn, error};
+use defmt::{info, warn};
 use defmt_rtt as _;
 use panic_probe as _;
 

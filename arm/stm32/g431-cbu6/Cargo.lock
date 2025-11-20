@@ -552,6 +552,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "g431-cbu6"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "defmt",
+ "defmt-rtt",
+ "embassy-executor",
+ "embassy-stm32",
+ "embassy-sync 0.6.2",
+ "embassy-time 0.5.0",
+ "embedded-can",
+ "embedded-hal 1.0.0",
+ "embedded-io 0.7.1",
+ "korri-n2k",
+ "panic-probe",
+ "static_cell",
+]
+
+[[package]]
 name = "hash32"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -822,27 +843,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7f0639399e2307c2446c54d91d4f1596343a1e1d5cab605b9cce11d0ab3858c"
 dependencies = [
  "embedded-hal 0.2.7",
-]
-
-[[package]]
-name = "stm32-g431-cbu6"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "critical-section",
- "defmt",
- "defmt-rtt",
- "embassy-executor",
- "embassy-stm32",
- "embassy-sync 0.6.2",
- "embassy-time 0.5.0",
- "embedded-can",
- "embedded-hal 1.0.0",
- "embedded-io 0.7.1",
- "korri-n2k",
- "panic-probe",
- "static_cell",
 ]
 
 [[package]]
