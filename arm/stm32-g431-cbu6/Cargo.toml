@@ -1,0 +1,53 @@
+[package]
+name = "stm32-g431-cbu6"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embassy-executor = { version = "0.9.1", features = ["arch-cortex-m", "executor-thread"] }
+embassy-time     = { version = "0.5", features = ["tick-hz-32_768"] }
+
+# HAL STM32
+embassy-stm32 = { version = "0.4", features = [
+  "stm32g431cb",
+  "time-driver-any", # Permet a embassy-time d'utiliser un timer materiel dispo sur la chip
+  "exti", # Interruption GPIO
+]}
+
+# Cortex-m / bare-metal
+cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] } # Primitives bas niveau
+cortex-m-rt = "0.7.5" # Runtime bare-metal: interruptions, reset handler, empilement initial.. + script link.x
+
+# Logs via RTT
+defmt = "1.0.1" # decompresse 
+defmt-rtt = "1.1.0" # expedie via la sonde
+
+# Panic via RTT
+panic-probe = { version = "1.0.0", features = ["print-defmt"] }
+
+# Traits embedded-hal 
+embedded-hal = "1.0.0"
+embedded-io = "0.7.1"
+critical-section = "1.2.0"
+static_cell = "2.1.1"
+embedded-can = "0.4.1"
+embassy-sync = "0.6.2"
+
+# Korri-n2k
+korri-n2k = "0.1.1"
+
+[[bin]]
+
+name = "total"
+path = "./src/main.rs"
+
+[[bin]]
+name = "simple_run"
+path = "./src/simple.rs"
+
+
+[profile.release]
+# lto = true # Link Time Optimization -> le linker fusionne et supprime le gras entre crates. Moins de flash. mieux pour le MCU
+# codegen-units = 1 # Compilation MonoThread, plus lent pour le build mais le code est plus serre et coherent
+# opt-level = "s" # Opti pour reduire la taille du code plutot que la perf brute. "s" est un compromis classique
+debug = 2  # Garde des infos de debug meme en release. 0 = binaire plus petit mais aucune trace si crash 

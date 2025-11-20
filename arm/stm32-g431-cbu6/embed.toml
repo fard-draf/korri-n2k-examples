@@ -1,0 +1,24 @@
+[default.general]
+chip = "STM32G431CB"
+# probe = "Auto"
+protool = "Swd"
+# speed = 24000
+
+# [default.flashing]
+# enabled = true
+# halt_afterwards = false
+# do_chip_erase = false
+# verify = true
+
+[default.rtt]
+enabled = true
+# timeout = 3000
+
+# [default.gdb]
+# enabled = false
+
+# [default.reset]
+# halt = false
+
+[default.defmt]
+enabled = true

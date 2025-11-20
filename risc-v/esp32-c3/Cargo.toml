@@ -1,0 +1,62 @@
+[package]
+edition      = "2021"
+name         = "esp32-c3"
+rust-version = "1.86"
+version      = "0.1.0"
+
+
+[[bin]]
+name = "talker"
+path = "./src/bin/talker.rs"
+
+[[bin]]
+name = "receive"
+path = "./src/bin/receive.rs"
+
+[[bin]]
+name = "feed"
+path = "./src/bin/feed.rs"
+
+[[bin]]
+name = "talker_fight3"
+path = "./src/bin/talker_fight3.rs"
+
+
+[dependencies]
+defmt = "0.3"
+defmt-rtt = "1.0"
+esp-println      = { version = "0.15.0", features = ["esp32c3", "defmt-espflash"] }
+
+esp-bootloader-esp-idf = { version = "0.2.0", features = ["esp32c3"] }
+esp-hal                = { version = "=1.0.0-rc.0", features = ["esp32c3", "unstable"] }
+embassy-executor = { version = "0.7.0", features = ["task-arena-size-20480"] }
+esp-hal-embassy = { version = "0.9.0", features = ["esp32c3"] }
+
+embassy-time     = { version = "0.5"}
+embassy-sync = "0.6.2"
+embedded-can = "0.4.1"
+
+embassy-futures = "0.1.2"
+korri-n2k = "0.1.1"
+
+critical-section = "1.2.0"
+esp-backtrace = { version = "0.17.0", features = [ "defmt"]}
+nb = "1.0"
+static_cell = "2.1.1"
+embedded-io-async = "0.6"
+
+
+
+[profile.dev]
+# Rust debug is too slow.
+# For debug builds always builds with some optimization
+opt-level = "s"
+
+[profile.release]
+codegen-units    = 1     # LLVM can perform better optimizations using a single thread
+debug            = 2
+debug-assertions = false
+incremental      = false
+lto              = 'fat'
+opt-level        = 's'
+overflow-checks  = false
