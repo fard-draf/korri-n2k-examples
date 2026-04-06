@@ -13,7 +13,7 @@ use esp_hal::{
     twai::{BaudRate, TwaiMode},
 };
 use esp_println::println;
-use korri_bsp_esp32::{
+use esp32_s3::{
     pgns::{
         ac_input_127503::task_ac_input_127503, ais_class_a_129038::task_ais_class_a_129038,
         ais_class_b_129039::task_ais_class_b_129039, alert_text_126985::task_alert_text_126985,
@@ -59,7 +59,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 }
 
 type AddressManagerType =
-    AddressManager<korri_bsp_esp32::ports::EspCanBus<'static>, korri_bsp_esp32::timer::EspTimer>;
+    AddressManager<esp32_s3::ports::EspCanBus<'static>, esp32_s3::timer::EspTimer>;
 
 static MANAGER_CELL: StaticCell<Mutex<CriticalSectionRawMutex, AddressManagerType>> =
     StaticCell::new();
@@ -89,9 +89,9 @@ async fn main(spawner: Spawner) {
     .into_async();
 
     let can_peripheral = can_config.start();
-    let can_bus = korri_bsp_esp32::ports::EspCanBus::new(can_peripheral);
+    let can_bus = esp32_s3::ports::EspCanBus::new(can_peripheral);
 
-    let mut korri_timer = korri_bsp_esp32::timer::EspTimer;
+    let mut korri_timer = esp32_s3::timer::EspTimer;
 
     led.set_high();
     embassy_time::Timer::after(Duration::from_millis(1000)).await;

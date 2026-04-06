@@ -32,9 +32,9 @@ impl<F: Future> Future for SendFuture<F> {
 pub struct EspTimer;
 
 impl KorriTimer for EspTimer {
-    fn delay_ms<'a>(&'a mut self, millis: u32) -> impl Future<Output = ()>+ 'a {
+    async fn delay_ms(&mut self, millis: u32) {
         SendFuture::new(async move {
             embassy_time::Timer::after(Duration::from_millis(millis as u64)).await
-        })
+        }).await;
     }
 }

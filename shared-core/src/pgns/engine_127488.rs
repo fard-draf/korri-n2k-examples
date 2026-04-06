@@ -1,31 +1,31 @@
+use korri_n2k::protocol::transport::traits::can_bus::CanBus;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker};
 
-use crate::{ports::EspCanBus, timer::EspTimer};
 use korri_n2k::{
-    infra::codec::{
-        engine,
-        traits::{PgnData, ToPayload},
-    },
+    infra::codec::traits::PgnData,
     protocol::{
-        lookups::{ControllerState, EngineInstance, EquipmentStatus, PgnErrorCode, WaterReference},
+        lookups::EngineInstance,
         managment::address_manager::AddressManager,
         messages::Pgn127488,
         transport::{
             can_frame::CanFrame,
             can_id::CanId,
-            traits::{can_bus, korri_timer::KorriTimer, pgn_sender::PgnSender},
+            traits::korri_timer::KorriTimer,
         },
     },
 };
 
-type AddressManagerType = AddressManager<crate::ports::EspCanBus<'static>, crate::timer::EspTimer>;
 
-#[embassy_executor::task]
-pub async fn task_engine_127488<const CAP: usize>(
-    handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, CAP>,
-) {
+pub async fn task_engine_127488<C, T>(
+    manager: &'static Mutex<CriticalSectionRawMutex, AddressManager<C, T>>,
+)
+where
+    C: CanBus + Send + 'static,
+    T: KorriTimer + Send + 'static,
+    C::Error: core::fmt::Debug,
+{
     let mut ticker = Ticker::every(Duration::from_millis(100));
     let mut buffer = [0u8; 8];
 
@@ -49,7 +49,8 @@ pub async fn task_engine_127488<const CAP: usize>(
 
         // Verrouiller le mutex pour accéder au manager
         let my_address = {
-                        handle.current_address().await
+            let mgr = manager.lock().await;
+            mgr.current_address()
         };
 
         let can_id = CanId::builder(127488, my_address)
@@ -65,7 +66,8 @@ pub async fn task_engine_127488<const CAP: usize>(
 
         // Verrouiller à nouveau pour envoyer
         let result = {
-                        handle.send_frame(&frame).await
+            let mut mgr = manager.lock().await;
+            mgr.send(&frame).await
         };
     }
 }

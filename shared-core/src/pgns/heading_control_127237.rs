@@ -1,8 +1,9 @@
+use korri_n2k::protocol::transport::traits::can_bus::CanBus;
+use korri_n2k::protocol::transport::traits::korri_timer::KorriTimer;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker};
 
-use crate::{ports::EspCanBus, timer::EspTimer};
 use korri_n2k::{
     infra::codec::traits::PgnData,
     protocol::{
@@ -17,12 +18,15 @@ use korri_n2k::{
     },
 };
 
-type AddressManagerType = AddressManager<crate::ports::EspCanBus<'static>, crate::timer::EspTimer>;
 
-#[embassy_executor::task]
-pub async fn task_heading_control_127237<const CAP: usize>(
-    handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, CAP>,
-) {
+pub async fn task_heading_control_127237<C, T>(
+    manager: &'static Mutex<CriticalSectionRawMutex, AddressManager<C, T>>,
+)
+where
+    C: CanBus + Send + 'static,
+    T: KorriTimer + Send + 'static,
+    C::Error: core::fmt::Debug,
+{
     let mut ticker = Ticker::every(Duration::from_millis(250));
     let mut buffer = [0u8; 8];
     let mut rudder_angle: f32 = 0.0;
@@ -51,7 +55,8 @@ pub async fn task_heading_control_127237<const CAP: usize>(
         };
 
         let my_address = {
-                        handle.current_address().await
+            let mgr = manager.lock().await;
+            mgr.current_address()
         };
 
         let can_id = CanId::builder(127237, my_address)
@@ -66,7 +71,8 @@ pub async fn task_heading_control_127237<const CAP: usize>(
         };
 
         {
-                        let _ = handle.send_frame(&frame).await;
+            let mut mgr = manager.lock().await;
+            let _ = mgr.send(&frame).await;
         }
     }
 }

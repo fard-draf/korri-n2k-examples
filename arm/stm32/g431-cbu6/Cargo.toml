@@ -19,7 +19,7 @@ cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] } # 
 cortex-m-rt = "0.7.5" # Runtime bare-metal: interruptions, reset handler, empilement initial.. + script link.x
 
 # Logs via RTT
-defmt = "1.0.1" # decompresse 
+defmt = "1.0" # decompresse
 defmt-rtt = "1.1.0" # expedie via la sonde
 
 # Panic via RTT
@@ -34,7 +34,8 @@ embedded-can = "0.4.1"
 embassy-sync = "0.6.2"
 
 # Korri-n2k
-korri-n2k = "0.1.1"
+korri-n2k = "0.2.0"
+shared-core = { path = "../../../shared-core" }
 
 [[bin]]
 

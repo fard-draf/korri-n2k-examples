@@ -85,11 +85,10 @@ impl defmt::Format for Stm32CanError {
 impl<'d, const TX_BUF: usize, const RX_BUF: usize> CanBus for Stm32CanBus<'d, TX_BUF, RX_BUF> {
     type Error = Stm32CanError;
 
-    fn send<'a>(
-        &'a mut self,
-        frame: &'a CanFrame,
-    ) -> impl Future<Output = Result<(), Self::Error>> + 'a {
-        async move {
+    async fn send(
+        &mut self,
+        frame: &CanFrame,
+    ) -> Result<(), Self::Error> {
             let hal_frame =
                 HalFrame::new_extended(frame.id.0, &frame.data[..frame.len]).map_err(|err| {
                     CAN_TX_FAILS.fetch_add(1, Ordering::Relaxed);
@@ -99,11 +98,9 @@ impl<'d, const TX_BUF: usize, const RX_BUF: usize> CanBus for Stm32CanBus<'d, TX
             self.inner.write(hal_frame).await;
             self.refresh_diagnostics();
             Ok(())
-        }
     }
 
-    fn recv<'a>(&'a mut self) -> impl Future<Output = Result<CanFrame, Self::Error>> + 'a {
-        async move {
+    async fn recv(&mut self) -> Result<CanFrame, Self::Error> {
             let envelope = self.inner.read().await.map_err(|err| {
                 CAN_RX_FAILS.fetch_add(1, Ordering::Relaxed);
                 Self::Error::from(err)
@@ -128,7 +125,6 @@ impl<'d, const TX_BUF: usize, const RX_BUF: usize> CanBus for Stm32CanBus<'d, TX
                 data,
                 len: payload.len(),
             })
-        }
     }
 }
 
@@ -220,9 +216,10 @@ impl Stm32Timer {
 }
 
 impl KorriTimer for Stm32Timer {
-    fn delay_ms<'a>(&'a mut self, millis: u32) -> impl Future<Output = ()> + 'a {
+
+    async fn delay_ms(&mut self, millis: u32) ->  (){
         async move {
             Timer::after(Duration::from_millis(millis as u64)).await;
-        }
+        }.await
     }
 }

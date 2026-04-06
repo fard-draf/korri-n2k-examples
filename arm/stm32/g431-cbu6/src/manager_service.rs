@@ -1,4 +1,3 @@
-
 use crate::{CAN_RX_BUF_DEPTH, CAN_TX_BUF_DEPTH, Stm32Timer, ports::Stm32CanBus};
 
 type AddressManagerType =
@@ -20,39 +19,9 @@ static COMMAND_CHANNEL: static_cell::StaticCell<
         korri_n2k::protocol::managment::address_supervisor::SupervisorCommand,
     COMMAND_CAPACITY>,
 > = static_cell::StaticCell::new();
-static MANAGER_HANDLE: static_cell::StaticCell<ManagerHandle> = static_cell::StaticCell::new();
+static MANAGER_HANDLE: static_cell::StaticCell<korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, COMMAND_CAPACITY>> = static_cell::StaticCell::new();
 
-#[derive(Clone, Copy, Debug)]
-pub enum ManagerClientError {
-    Serialization,
-}
-
-pub struct ManagerHandle {
-    handle: korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, COMMAND_CAPACITY>,
-}
-
-impl ManagerHandle {
-    pub async fn send_pgn<P: korri_n2k::infra::codec::traits::PgnData>(
-        &self,
-        data: &P,
-        pgn: u32,
-        priority: u8,
-        destination: Option<u8>,
-    ) -> Result<(), ManagerClientError> {
-        self.handle
-            .send_pgn(data, pgn, priority, destination)
-            .await
-            .map_err(|err| match err {
-                korri_n2k::protocol::managment::address_supervisor::AddressHandleError::Serialization => ManagerClientError::Serialization,
-            })
-    }
-
-    pub async fn send_frame(&self, frame: & korri_n2k::protocol::transport::can_frame::CanFrame) {
-        self.handle.send_frame(frame).await;
-    }
-}
-
-pub fn init_manager(manager: AddressManagerType) -> (ManagerRunner, &'static ManagerHandle) {
+pub fn init_manager(manager: AddressManagerType) -> (ManagerRunner, &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, COMMAND_CAPACITY>) {
     let chan = COMMAND_CHANNEL.init_with(embassy_sync::channel::Channel::new);
 
     let service = korri_n2k::protocol::managment::address_supervisor::AddressService::<_, _, COMMAND_CAPACITY, 0>::new(manager, Some(chan), None);
@@ -61,7 +30,7 @@ pub fn init_manager(manager: AddressManagerType) -> (ManagerRunner, &'static Man
     let handle = parts
         .handle
         .expect("command channel ensures handle availability");
-    let manager_handle = MANAGER_HANDLE.init(ManagerHandle { handle });
+    let manager_handle = MANAGER_HANDLE.init(handle);
 
     (parts.runner, manager_handle)
 }

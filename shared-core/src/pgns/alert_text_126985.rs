@@ -3,22 +3,12 @@ use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker};
 use defmt::{info, Debug2Format};
 
-use korri_n2k::{
-    infra::codec::traits::PgnData,
-    protocol::{
+use korri_n2k::protocol::{
         lookups::{AlertCategory, AlertLanguageId, AlertType},
         managment::address_manager::AddressManager,
-        messages::Pgn126985,
-        transport::{
-            fast_packet::builder::FastPacketBuilder,
-            traits::pgn_sender::PgnSender,
-        },
-    },
-};
+        messages::Pgn126985 };
 
-type AddressManagerType = AddressManager<crate::ports::EspCanBus<'static>, crate::timer::EspTimer>;
 
-#[embassy_executor::task]
 pub async fn task_alert_text_126985<const CAP: usize>(
     handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, CAP>,
 ) {

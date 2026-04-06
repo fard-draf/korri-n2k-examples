@@ -9,17 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
-name = "async-trait"
-version = "0.1.89"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9035ad2d096bed7955a320ee7e2230574d28fd3c3a0f186cbea1ff3c7eed5dbb"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.110",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1148,11 +1137,10 @@ dependencies = [
 
 [[package]]
 name = "korri-n2k"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e262af9af2de1485ccc1785a4c2ae0d2f51e218af63025f5eee65de0844e532"
+checksum = "a3bde8fd401d04040c7057c6c4197ea7b8a0d8253771a99d54f30ab5c942759f"
 dependencies = [
- "async-trait",
  "embassy-sync 0.6.2",
  "embassy-time 0.4.0",
  "embedded-can",
