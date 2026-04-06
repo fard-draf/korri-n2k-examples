@@ -1,4 +1,3 @@
-use core::future::Future;
 use embedded_can::{Frame, Id};
 use embassy_time::{with_timeout, Duration};
 use esp_hal::{
@@ -119,11 +118,10 @@ impl<'d> EspCanBusTx<'d> {
 impl<'d> CanBus for EspCanBus<'d> {
     type Error = EspTwaiError;
 
-    fn send<'a>(
-        &'a mut self,
-        frame: &'a CanFrame,
-    ) -> impl Future<Output = Result<(), Self::Error>> + 'a {
-        async move {
+    async fn send(
+        &mut self,
+        frame: &CanFrame,
+    ) -> Result<(), EspTwaiError> {
             let ext_id = EspExtendedId::new(frame.id.0).unwrap();
             let twai_frame = EspTwaiFrame::new(ext_id, &frame.data[..frame.len]).unwrap();
 
@@ -146,10 +144,8 @@ impl<'d> CanBus for EspCanBus<'d> {
             .await
             .map_err(|_| EspTwaiError::BusOff)? // Timeout converti en erreur BusOff
         }
-    }
 
-    fn recv<'a>(&'a mut self) -> impl Future<Output = Result<CanFrame, Self::Error>> + 'a {
-        async move {
+    async fn recv(&mut self) -> Result<CanFrame, EspTwaiError>  {
             let frame = match self.can.receive_async().await {
                 Ok(frame) => frame,
                 Err(e) => {
@@ -184,5 +180,4 @@ impl<'d> CanBus for EspCanBus<'d> {
 
             Ok(can_frame)
         }
-    }
 }

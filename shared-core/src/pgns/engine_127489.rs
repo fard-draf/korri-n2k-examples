@@ -1,11 +1,10 @@
+use korri_n2k::protocol::transport::traits::can_bus::CanBus;
 use core::{any::Any, hash::BuildHasherDefault};
 
-use esp_println::println;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker};
 
-use crate::{ports::EspCanBus, timer::EspTimer};
 use korri_n2k::{
     infra::codec::{
         engine,
@@ -27,12 +26,15 @@ use korri_n2k::{
     },
 };
 
-type AddressManagerType = AddressManager<crate::ports::EspCanBus<'static>, crate::timer::EspTimer>;
 
-#[embassy_executor::task]
-pub async fn task_engine_127489<const CAP: usize>(
-    handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, CAP>,
-) {
+pub async fn task_engine_127489<C, T>(
+    manager: &'static Mutex<CriticalSectionRawMutex, AddressManager<C, T>>,
+)
+where
+    C: CanBus + Send + 'static,
+    T: KorriTimer + Send + 'static,
+    C::Error: core::fmt::Debug,
+{
     let mut ticker = Ticker::every(Duration::from_millis(200));
     let mut tilt: u8 = 0;
 
@@ -71,10 +73,11 @@ pub async fn task_engine_127489<const CAP: usize>(
         let builder = FastPacketBuilder::new(127489, 142, None, &buffer[..len]);
 
         // Lock une seule fois pour envoyer toutes les frames
-                for frame_result in builder.build() {
+        let mut mgr = manager.lock().await;
+        for frame_result in builder.build() {
             match frame_result {
                 Ok(frame) => {
-                    if let Err(e) = handle.send_frame(&frame).await {
+                    if let Err(e) = mgr.send(&frame).await {
                         // Erreur d'envoi - on continue avec la prochaine frame
                     }
                 }

@@ -1,15 +1,20 @@
+use korri_n2k::protocol::transport::traits::can_bus::CanBus;
+use korri_n2k::protocol::transport::traits::korri_timer::KorriTimer;
 use defmt::{info, Debug2Format};
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_time::{Duration, Ticker};
 
 use korri_n2k::protocol::{managment::address_manager::AddressManager, messages::Pgn129025};
-type AddressManagerType = AddressManager<crate::ports::EspCanBus<'static>, crate::timer::EspTimer>;
 
-#[embassy_executor::task]
-pub async fn task_position_129025<const CAP: usize>(
-    handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, CAP>,
-) {
+pub async fn task_position_129025<C, T>(
+    manager: &'static Mutex<CriticalSectionRawMutex, AddressManager<C, T>>,
+)
+where
+    C: CanBus + Send + 'static,
+    T: KorriTimer + Send + 'static,
+    C::Error: core::fmt::Debug,
+{
     let mut ticker = Ticker::every(Duration::from_secs(1));
     loop {
         ticker.next().await;
@@ -17,7 +22,8 @@ pub async fn task_position_129025<const CAP: usize>(
         position_pgn.latitude = 47.64425;
         position_pgn.longitude = -2.71842;
 
-                match handle.send_pgn(&position_pgn, 129025, 6, None).await {
+        let mut mgr = manager.lock().await;
+        match mgr.send_pgn(&position_pgn, 129025, None).await {
 
 
             Ok(_) => {

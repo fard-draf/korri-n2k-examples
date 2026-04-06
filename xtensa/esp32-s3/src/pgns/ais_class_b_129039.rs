@@ -18,8 +18,8 @@ use korri_n2k::{
 type AddressManagerType = AddressManager<crate::ports::EspCanBus<'static>, crate::timer::EspTimer>;
 
 #[embassy_executor::task]
-pub async fn task_ais_class_b_129039(
-    manager: &'static Mutex<CriticalSectionRawMutex, AddressManagerType>,
+pub async fn task_ais_class_b_129039<const CAP: usize>(
+    handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, CAP>,
 ) {
     let mut ticker = Ticker::every(Duration::from_secs(30));
     let mut payload_buffer = [0u8; 256];
@@ -45,18 +45,16 @@ pub async fn task_ais_class_b_129039(
         };
 
         let my_address = {
-            let mgr = manager.lock().await;
-            mgr.current_address()
+                        handle.current_address().await
         };
 
         let fp_builder = FastPacketBuilder::new(129039, my_address, None, &payload_buffer[..payload_len]);
 
         {
-            let mut mgr = manager.lock().await;
-            for frame_result in fp_builder.build() {
+                        for frame_result in fp_builder.build() {
                 match frame_result {
                     Ok(frame) => {
-                        if let Err(_e) = mgr.send(&frame).await {
+                        if let Err(_e) = handle.send_frame(&frame).await {
                             // Gestion d'erreur simplifiée
                         }
                     }

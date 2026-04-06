@@ -1,0 +1,58 @@
+* Résolution de l'erreur =E0308 : mismatched types= avec Embassy et Rust embarqué
+
+** 1. Le problème initial
+Quand nous avons rendu les tâches PGN (comme =ac_input_127503=) "agnostiques du BSP" (c'est-à-dire génériques), nous avons standardisé leur signature pour qu'elles attendent toutes un accès partagé au gestionnaire d'adresses.
+
+Elles attendent spécifiquement ceci :
+#+BEGIN_SRC rust
+manager: &'static Mutex<CriticalSectionRawMutex, AddressManagerType>
+#+END_SRC
+Cela signifie : /"Donne-moi une référence qui dure toute la vie du programme (='static=), pointant vers un =Mutex= qui protège l'=AddressManager="/.
+
+Cependant, dans le =main.rs= du STM32, le code faisait ceci :
+#+BEGIN_SRC rust
+// 1. Le manager est consommé (déplacé) par ce service
+let (runner, mgr_handle) = manager_service::init_manager(manager);
+
+// 2. Puis on essaie de passer ce même manager (qui n'est pas un Mutex) à la tâche
+spawner.spawn(ac_input_task(manager)).expect("spawn ac_input task");
+#+END_SRC
+
+Le compilateur Rust a bloqué pour deux raisons fondamentales :
+- *Ownership (Possession) :* Le =manager= était "consommé" par =init_manager=. En Rust, une fois qu'une variable est donnée par valeur à une fonction, elle ne peut plus être utilisée ailleurs.
+- *Type mismatch :* =ac_input_task= ne recevait pas le type =&'static Mutex<...>=, mais l'objet =AddressManager= brut.
+
+** 2. La solution : =StaticCell= et =Mutex=
+Pour que plusieurs tâches asynchrones d'Embassy (comme =can_diagnostics_task= et =ac_input_task=) puissent utiliser le même =AddressManager= en toute sécurité, il faut le placer dans une zone mémoire globale (=static=) et le protéger par un verrou (=Mutex=).
+
+Voici les étapes de la résolution :
+
+*** A. Créer un espace mémoire statique
+Nous avons ajouté une variable statique en haut du fichier grâce à =StaticCell= (un outil très pratique en embarqué pour allouer de la mémoire statique au moment de l'exécution, sans utiliser =unsafe=) :
+#+BEGIN_SRC rust
+static MANAGER: static_cell::StaticCell<embassy_sync::mutex::Mutex<CriticalSectionRawMutex, AddressManagerType>> = static_cell::StaticCell::new();
+#+END_SRC
+
+*** B. Initialiser et verrouiller le manager
+Dans le =main=, juste après avoir configuré l'=AddressManager=, nous l'avons glissé dans notre espace statique, enveloppé d'un Mutex :
+#+BEGIN_SRC rust
+// On enveloppe le manager dans un Mutex, et on le place dans le StaticCell
+let manager_ref = MANAGER.init(embassy_sync::mutex::Mutex::new(manager));
+#+END_SRC
+=manager_ref= est maintenant exactement du type demandé : =&'static Mutex<CriticalSectionRawMutex, AddressManagerType>=.
+
+*** C. Simplifier l'architecture
+Puisque le =manager= est désormais directement partagé via ce Mutex entre les tâches, la surcouche =manager_service::init_manager= (qui essayait de gérer ce partage via un système de canaux et de "runner") devenait incompatible (elle demandait à posséder le manager en exclusivité). Nous l'avons donc retirée pour laisser la tâche PGN accéder directement au Mutex.
+
+*** D. Mettre à jour l'appel de la tâche
+Enfin, nous avons mis à jour la fonction intermédiaire pour appeler explicitement la nouvelle fonction générique de la librairie partagée :
+#+BEGIN_SRC rust
+#[embassy_executor::task]
+async fn ac_input_task(manager: &'static embassy_sync::mutex::Mutex<CriticalSectionRawMutex, AddressManagerType>) {
+    // Appel de la fonction générique
+    shared_core::pgns::ac_input_127503::task_ac_input_127503(manager).await;
+}
+#+END_SRC
+
+** En résumé
+L'erreur venait des règles de propriété très strictes de Rust. La librairie standardisée (=shared-core=) exigeait un accès partagé et sécurisé (=&'static Mutex=), alors que le code STM32 essayait de donner le composant brut tout en le donnant simultanément à un autre service. En utilisant un =StaticCell= et un =Mutex=, nous avons créé un "point de vérité unique" accessible en toute sécurité par toutes vos tâches asynchrones !

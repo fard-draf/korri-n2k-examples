@@ -121,37 +121,6 @@ fn format_actisense(frame: &CanFrame, uptime_ms: u64, buffer: &mut [u8; 128]) ->
     pos
 }
 
-// impl Debug for CanId {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "0x{:08X}", self.0)
-//     }
-// }
-
-// impl defmt::Debug for CanFrame {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         struct HexSlice<'a>(&'a [u8]);
-
-//         impl<'a> fmt::Debug for HexSlice<'a> {
-//             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//                 f.write_str("[")?;
-//                 for (i, b) in self.0.iter().enumerate() {
-//                     if i != 0 {
-//                         f.write_str(" ")?;
-//                     }
-//                     write!(f, "{:02X}", b)?;
-//                 }
-//                 f.write_str("]")
-//             }
-//         }
-
-//         let used = self.len.min(self.data.len());
-//         f.debug_struct("CanFrame")
-//             .field("id", &self.id)
-//             .field("len", &self.len)
-//             .field("data", &HexSlice(&self.data[..used]))
-//             .finish()
-//     }
-// }
 
 
 #[esp_hal_embassy::main]
@@ -212,7 +181,15 @@ async fn main(_spawner: Spawner) {
                 total_count += 1;
                 // Calculer l'uptime en millisecondes
                 let uptime_ms = (Instant::now() - start_time).as_millis();
-                defmt::trace!("{:?}", Debug2Format(&frame));
+                // defmt::trace!("{:?}", Debug2Format(&frame));
+                // if (count % 100) == 0 {
+                //     defmt::trace!("uptime_sc: {}", uptime_ms / 1000);
+                //     defmt::trace!("total_count: {}", total_count);
+                //     defmt::trace!("err_count: {}",error_count);
+                // }
+                if ((error_count % 10) == 0) && (error_count != 0) {
+                    defmt::trace!("err_count: {}", error_count);
+                }
                 // Formater et envoyer vers UART au format ACTISENSE
                 let len = format_actisense(&frame, uptime_ms, &mut actisense_buffer);
                     
@@ -225,7 +202,8 @@ async fn main(_spawner: Spawner) {
                     }
                 }
             }
-            Err(_) => {
+            Err(e) => {
+                defmt::error!("error: {:?}", e);
                 error_count += 1;
             }
         }

@@ -25,41 +25,11 @@ const COMMAND_CAPACITY: usize = 16;
 static COMMAND_CHANNEL: StaticCell<
     Channel<CriticalSectionRawMutex, SupervisorCommand, COMMAND_CAPACITY>,
 > = StaticCell::new();
-static MANAGER_HANDLE: StaticCell<ManagerHandle> = StaticCell::new();
-
-#[derive(Clone, Copy, Debug)]
-pub enum ManagerClientError {
-    Serialization,
-}
-
-pub struct ManagerHandle {
-    handle: AddressHandle<'static, COMMAND_CAPACITY>,
-}
-
-impl ManagerHandle {
-    pub async fn send_pgn<P: PgnData>(
-        &self,
-        data: &P,
-        pgn: u32,
-        priority: u8,
-        destination: Option<u8>,
-    ) -> Result<(), ManagerClientError> {
-        self.handle
-            .send_pgn(data, pgn, priority, destination)
-            .await
-            .map_err(|err| match err {
-                AddressHandleError::Serialization => ManagerClientError::Serialization,
-            })
-    }
-
-    pub async fn send_frame(&self, frame: &CanFrame) {
-        self.handle.send_frame(frame).await;
-    }
-}
+static MANAGER_HANDLE: StaticCell<AddressHandle<'static, COMMAND_CAPACITY>> = StaticCell::new();
 
 pub fn init_manager(
     manager: AddressManagerType,
-) -> (ManagerRunner, &'static ManagerHandle) {
+) -> (ManagerRunner, &'static AddressHandle<'static, COMMAND_CAPACITY>) {
     let channel = COMMAND_CHANNEL.init_with(Channel::new);
 
     let service = AddressService::<_, _, COMMAND_CAPACITY, 0>::new(
@@ -72,17 +42,16 @@ pub fn init_manager(
     let handle = parts
         .handle
         .expect("command channel ensures handle availability");
-    let manager_handle = MANAGER_HANDLE.init(ManagerHandle { handle });
+    let manager_handle = MANAGER_HANDLE.init(handle);
 
     (parts.runner, manager_handle)
 }
 
 #[embassy_executor::task]
 pub async fn address_manager_task(runner: ManagerRunner) {
-    if let Err(err) = runner.drive().await {
+    if let Err(_err) = runner.drive().await {
         defmt::warn!(
             "Address supervisor stopped:",
-            
         );
     }
 }
