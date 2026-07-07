@@ -1,20 +1,13 @@
-use korri_n2k::protocol::transport::traits::can_bus::CanBus;
-use korri_n2k::protocol::transport::traits::korri_timer::KorriTimer;
-use embassy_sync::mutex::Mutex;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_time::{Duration, Ticker};
 use defmt::{info, Debug2Format};
 use korri_n2k::protocol::{
-    lookups::{BearingMode, DirectionReference, YesNo}, managment::address_manager::AddressManager, messages::Pgn129284
+    lookups::{BearingMode, DirectionReference, YesNo}, messages::Pgn129284
 };
 
-pub async fn task_navigation_129284<C, T>(
-    manager: &'static Mutex<CriticalSectionRawMutex, AddressManager<C, T>>,
+pub async fn task_navigation_129284<const N: usize>(
+    handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, N>,
 )
-where
-    C: CanBus + Send + 'static,
-    T: KorriTimer + Send + 'static,
-    C::Error: core::fmt::Debug,
+
 {
     let mut ticker = Ticker::every(Duration::from_millis(100));
     let mut distance: f32 = 1000.0;
@@ -43,8 +36,7 @@ where
             distance = 1000.0;
         }
 
-        let mut mgr = manager.lock().await;
-        match mgr.send_pgn(&nav_pgn, 129284, None).await {
+        match handle.send_pgn(&nav_pgn, 129284, 2, None).await {
             Ok(_) => {
                 info!("PGN 129284 sent successfully");
             }

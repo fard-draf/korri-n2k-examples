@@ -1,0 +1,8 @@
+[rust-analyzer]
+linkedProjects = [
+    "shared-core/Cargo.toml",
+    "linux/socketcan/Cargo.toml",
+    "arm/stm32/g431-cbu6/Cargo.toml",
+    "risc-v/esp32-c3/Cargo.toml",
+    "xtensa/esp32-s3/Cargo.toml",
+]

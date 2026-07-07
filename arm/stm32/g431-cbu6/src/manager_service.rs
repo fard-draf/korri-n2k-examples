@@ -1,9 +1,20 @@
-use crate::{CAN_RX_BUF_DEPTH, CAN_TX_BUF_DEPTH, Stm32Timer, ports::Stm32CanBus};
+use crate::conf::{CAN_RX_BUF_DEPTH, CAN_TX_BUF_DEPTH};
+use crate::ports::{Stm32CanBus, Stm32Timer};
 
-type AddressManagerType =
-    korri_n2k::protocol::managment::address_manager::AddressManager<Stm32CanBus<'static, CAN_TX_BUF_DEPTH, CAN_RX_BUF_DEPTH>, Stm32Timer>;
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
+use korri_n2k::protocol::managment::address_supervisor::{
+    AddressHandle, AddressService, AddressSupervisorRunError, SupervisorCommand,
+};
+use static_cell::StaticCell;
 
-type ManagerRunner = korri_n2k::protocol::managment::address_supervisor::AddressRunner<
+const COMMAND_CAPACITY: usize = 16;
+
+pub type AddressManagerType = korri_n2k::protocol::managment::address_manager::AddressManager<
+    Stm32CanBus<'static, CAN_TX_BUF_DEPTH, CAN_RX_BUF_DEPTH>,
+    Stm32Timer,
+>;
+
+pub type ManagerRunner = korri_n2k::protocol::managment::address_supervisor::AddressRunner<
     'static,
     Stm32CanBus<'static, CAN_TX_BUF_DEPTH, CAN_RX_BUF_DEPTH>,
     Stm32Timer,
@@ -11,35 +22,34 @@ type ManagerRunner = korri_n2k::protocol::managment::address_supervisor::Address
     0,
 >;
 
-const COMMAND_CAPACITY: usize = 16;
+pub type Handle = &'static AddressHandle<'static, COMMAND_CAPACITY>;
 
-static COMMAND_CHANNEL: static_cell::StaticCell<
-    embassy_sync::channel::Channel<
-        embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex,
-        korri_n2k::protocol::managment::address_supervisor::SupervisorCommand,
-    COMMAND_CAPACITY>,
-> = static_cell::StaticCell::new();
-static MANAGER_HANDLE: static_cell::StaticCell<korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, COMMAND_CAPACITY>> = static_cell::StaticCell::new();
+static COMMAND_CHANNEL: StaticCell<
+    Channel<CriticalSectionRawMutex, SupervisorCommand, COMMAND_CAPACITY>,
+> = StaticCell::new();
+static MANAGER_HANDLE: StaticCell<AddressHandle<'static, COMMAND_CAPACITY>> = StaticCell::new();
 
-pub fn init_manager(manager: AddressManagerType) -> (ManagerRunner, &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, COMMAND_CAPACITY>) {
-    let chan = COMMAND_CHANNEL.init_with(embassy_sync::channel::Channel::new);
-
-    let service = korri_n2k::protocol::managment::address_supervisor::AddressService::<_, _, COMMAND_CAPACITY, 0>::new(manager, Some(chan), None);
-
+pub fn init_manager(manager: AddressManagerType) -> (ManagerRunner, Handle) {
+    let chan = COMMAND_CHANNEL.init_with(Channel::new);
+    let service = AddressService::<_, _, COMMAND_CAPACITY, 0>::new(manager, Some(chan), None);
     let parts = service.into_parts();
     let handle = parts
         .handle
         .expect("command channel ensures handle availability");
-    let manager_handle = MANAGER_HANDLE.init(handle);
-
-    (parts.runner, manager_handle)
+    (parts.runner, MANAGER_HANDLE.init(handle))
 }
 
 #[embassy_executor::task]
 pub async fn address_manager_task(runner: ManagerRunner) {
     defmt::info!("Address supervisor runner spawned");
     if let Err(err) = runner.drive().await {
-        let _ = err;
-        defmt::warn!("Address supervisor stopped");
+        match err {
+            AddressSupervisorRunError::Receive(_) => defmt::error!("runner stopped: recv error"),
+            AddressSupervisorRunError::Send(_) => defmt::error!("runner stopped: send error"),
+            AddressSupervisorRunError::SendPgn(_) => {
+                defmt::error!("runner stopped: send_pgn error")
+            }
+        }
+        loop {}
     }
 }

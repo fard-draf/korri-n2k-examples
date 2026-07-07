@@ -1,34 +1,20 @@
-use korri_n2k::protocol::transport::traits::can_bus::CanBus;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker};
+use defmt::{Debug2Format, error, info};
 
-use korri_n2k::{
-    infra::codec::traits::PgnData,
-    protocol::{
+use korri_n2k::protocol::{
         lookups::EngineInstance,
-        managment::address_manager::AddressManager,
         messages::Pgn127488,
-        transport::{
-            can_frame::CanFrame,
-            can_id::CanId,
-            traits::korri_timer::KorriTimer,
-        },
-    },
-};
+    };
 
+type AddressHandle<const N: usize> = korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, N>;
 
-pub async fn task_engine_127488<C, T>(
-    manager: &'static Mutex<CriticalSectionRawMutex, AddressManager<C, T>>,
+pub async fn task_engine_127488<const N: usize>(
+    handle: &'static AddressHandle<N>,
 )
-where
-    C: CanBus + Send + 'static,
-    T: KorriTimer + Send + 'static,
-    C::Error: core::fmt::Debug,
+
 {
     let mut ticker = Ticker::every(Duration::from_millis(100));
-    let mut buffer = [0u8; 8];
-
+    
     let mut tilt_trim: i8 = 0;
     let mut rpm: u16 = 0;
 
@@ -43,31 +29,15 @@ where
         rpm = rpm.wrapping_add(1);
         tilt_trim = (tilt_trim + 1) % 101;
 
-        let payload_len = engine_pgn
-            .to_payload(&mut buffer)
-            .expect("Serialisation failed");
-
-        // Verrouiller le mutex pour accéder au manager
-        let my_address = {
-            let mgr = manager.lock().await;
-            mgr.current_address()
-        };
-
-        let can_id = CanId::builder(127488, my_address)
-            .with_priority(2)
-            .build()
-            .expect("La construction doit reussir");
-
-        let frame = CanFrame {
-            id: can_id,
-            data: buffer,
-            len: payload_len,
-        };
-
-        // Verrouiller à nouveau pour envoyer
-        let result = {
-            let mut mgr = manager.lock().await;
-            mgr.send(&frame).await
-        };
+        {
+            match handle.send_pgn(&engine_pgn, 127488, 2, None).await {
+                Ok(_) => {
+                    info!("PGN 127488 sent successfully");
+                }
+                Err(e) => {
+                    error!("Error sending PGN 127503: {:?}", Debug2Format(&e));
+                }
+            }
+        }
     }
 }

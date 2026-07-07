@@ -1,33 +1,18 @@
-use korri_n2k::protocol::transport::traits::can_bus::CanBus;
-use korri_n2k::protocol::transport::traits::korri_timer::KorriTimer;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker};
 
-use korri_n2k::{
-    infra::codec::traits::PgnData,
-    protocol::{
+use korri_n2k::protocol::{
         lookups::{AisMessageId, PositionAccuracy, RaimFlag, RepeatIndicator, TimeStamp},
-        managment::address_manager::AddressManager,
         messages::Pgn129038,
-        transport::{
-            fast_packet::builder::FastPacketBuilder,
-        },
-    },
-};
+    };
 
-pub async fn task_ais_class_a_129038<C,T>(
-    manager: &'static Mutex<CriticalSectionRawMutex, AddressManager<C,T>>,
+pub async fn task_ais_class_a_129038<const N: usize>(
+    handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, N>,
 )
-where
-    C: CanBus + Send + 'static,
-    T: KorriTimer + Send + 'static,
-    C::Error: core::fmt::Debug,
+
 
  {
     let mut ticker = Ticker::every(Duration::from_secs(6));
-    let mut payload_buffer = [0u8; 256];
-
+    
     loop {
         ticker.next().await;
         let mut ais_pgn = Pgn129038::new();
@@ -42,32 +27,12 @@ where
         ais_pgn.cog = 45.0;
         ais_pgn.sog = 5.0;
 
-        let payload_len = match ais_pgn.to_payload(&mut payload_buffer) {
-            Ok(len) => len,
-            Err(_) => continue,
-        };
+        
 
-        let my_address = {
-            let mgr = manager.lock().await;
-            mgr.current_address()
-        };
+        
 
-        let fp_builder = FastPacketBuilder::new(129038, my_address, None, &payload_buffer[..payload_len]);
+        
 
-        {
-            let mut mgr = manager.lock().await;
-            for frame_result in fp_builder.build() {
-                match frame_result {
-                    Ok(frame) => {
-                        if let Err(_e) = mgr.send(&frame).await {
-                            // Gestion d'erreur simplifiée
-                        }
-                    }
-                    Err(_e) => {
-                        break;
-                    }
-                }
-            }
-        }
+        let _ = handle.send_pgn(&ais_pgn, 129038, 2, None).await;
     }
 }

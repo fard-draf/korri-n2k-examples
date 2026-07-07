@@ -4,7 +4,7 @@ set dotenv-load := true
 target       := "thumbv7em-none-eabihf"
 chip         := "STM32G431CBUx"
 profile      := "release"                   # release or debug
-defmt_level  := "trace"                     # default DEFMT_LOG
+defmt_level  := "info"                     # default DEFMT_LOG
 default_bin  := "stm32-g431-cbu6"           # fallback
 
 # List

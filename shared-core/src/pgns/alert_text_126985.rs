@@ -1,11 +1,8 @@
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker};
 use defmt::{info, Debug2Format};
 
 use korri_n2k::protocol::{
         lookups::{AlertCategory, AlertLanguageId, AlertType},
-        managment::address_manager::AddressManager,
         messages::Pgn126985 };
 
 
@@ -29,10 +26,10 @@ pub async fn task_alert_text_126985<const CAP: usize>(
         {
                         match handle.send_pgn(&alert_pgn, 126985, 6, None).await {
                 Ok(_) => {
-                    info!("PGN 127503 sent successfully");
+                    info!("PGN 126985 sent successfully");
                 }
                 Err(e) => {
-                    info!("Error sending PGN 127503: {:?}", Debug2Format(&e));
+                    info!("Error sending PGN 126985: {:?}", Debug2Format(&e));
                 }
             
             }

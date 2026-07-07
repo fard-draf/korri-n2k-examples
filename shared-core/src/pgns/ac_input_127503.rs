@@ -1,11 +1,7 @@
-use korri_n2k::protocol::transport::traits::can_bus::CanBus;
-use korri_n2k::protocol::transport::traits::korri_timer::KorriTimer;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker};
 
-use defmt::{info, Debug2Format};
-use korri_n2k::protocol::{managment::address_manager::AddressManager, messages::Pgn127503};
+use defmt::{info, error, Debug2Format};
+use korri_n2k::protocol::{messages::Pgn127503};
 
 
 /// Tâche d'émission périodique du PGN 127503 (AC Input Status).
@@ -29,13 +25,10 @@ use korri_n2k::protocol::{managment::address_manager::AddressManager, messages::
 /// Le PGN 127503 est un message Fast Packet qui peut générer plusieurs trames.
 /// Les délais inter-frame automatiques évitent les problèmes de saturation
 /// du buffer TX limité (3 frames) de l'ESP32 TWAI.
-pub async fn task_ac_input_127503<C, T>(
-    manager: &'static Mutex<CriticalSectionRawMutex, AddressManager<C, T>>,
+pub async fn task_ac_input_127503<const N: usize>(
+    handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, N>,
 )
-where
-    C: CanBus + Send + 'static,
-    T: KorriTimer + Send + 'static,
-    C::Error: core::fmt::Debug,
+
 {
     let mut ticker = Ticker::every(Duration::from_secs(1));
 
@@ -49,13 +42,12 @@ where
 
         // Envoi simplifié avec gestion automatique Fast Packet et délais
         {
-            let mut mgr = manager.lock().await;
-            match mgr.send_pgn(&ac_input_pgn, 127503, None).await {
+            match handle.send_pgn(&ac_input_pgn, 127503, 2, None).await {
                 Ok(_) => {
                     info!("PGN 127503 sent successfully");
                 }
                 Err(e) => {
-                    info!("Error sending PGN 127503: {:?}", Debug2Format(&e));
+                    error!("Error sending PGN 127503: {:?}", Debug2Format(&e));
                 }
             }
         }

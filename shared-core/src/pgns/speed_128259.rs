@@ -1,39 +1,22 @@
-use korri_n2k::protocol::transport::traits::can_bus::CanBus;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Ticker};
 
-use korri_n2k::{
-    infra::codec::traits::PgnData,
-    protocol::{
+use korri_n2k::protocol::{
         lookups::WaterReference,
-        managment::address_manager::AddressManager,
         messages::Pgn128259,
-        transport::{
-            can_frame::CanFrame,
-            can_id::CanId,
-            traits::korri_timer::KorriTimer,
-        },
-    },
-};
+    };
 
 
-pub async fn task_speed_128259<C, T>(
-    manager: &'static Mutex<CriticalSectionRawMutex, AddressManager<C, T>>,
+pub async fn task_speed_128259<const N: usize>(
+    handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, N>,
 )
-where
-    C: CanBus + Send + 'static,
-    T: KorriTimer + Send + 'static,
-    C::Error: core::fmt::Debug,
+
 {
     defmt::info!("task_speed démarrée");
     let interval = Pgn128259::PGN_128259_DESCRIPTOR
         .trans_interval
         .unwrap_or(5000) as u64;
-    let priority = Pgn128259::PGN_128259_DESCRIPTOR.priority.unwrap_or(3);
-    let mut ticker = Ticker::every(Duration::from_millis(interval));
-    let mut buffer = [0u8; 8];
-
+        let mut ticker = Ticker::every(Duration::from_millis(interval));
+    
     loop {
         ticker.next().await;
         let mut speed = Pgn128259::new();
@@ -43,29 +26,16 @@ where
         speed.speed_water_referenced_type = WaterReference::PaddleWheel;
         speed.speed_direction = 158;
 
-        let payload_len = speed.to_payload(&mut buffer).expect("Serialisation failed");
+        
 
         // Verrouiller le mutex pour accéder au manager
-        let my_address = {
-            let mgr = manager.lock().await;
-            mgr.current_address()
-        };
+        
 
-        let can_id = CanId::builder(128259, my_address)
-            .with_priority(priority)
-            .build()
-            .expect("La construction doit reussir");
+        
 
-        let frame = CanFrame {
-            id: can_id,
-            data: buffer,
-            len: payload_len,
-        };
+        
 
         // Verrouiller à nouveau pour envoyer
-        {
-            let mut mgr = manager.lock().await;
-            let _ = mgr.send(&frame).await;
-        };
+        let _ = handle.send_pgn(&speed, 128259, 2, None).await;;
     }
 }

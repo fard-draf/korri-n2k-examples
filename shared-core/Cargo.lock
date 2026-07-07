@@ -227,9 +227,9 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "korri-n2k"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3bde8fd401d04040c7057c6c4197ea7b8a0d8253771a99d54f30ab5c942759f"
+checksum = "dcd124974596af98d0f29b74b16e9cf202120a8996a7a200fc8a7e2f9ad360bd"
 dependencies = [
  "embassy-sync",
  "embassy-time 0.4.0",

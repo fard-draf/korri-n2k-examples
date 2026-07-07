@@ -8,13 +8,13 @@ use panic_probe as _;
 use embassy_executor::Spawner;
 use embassy_stm32::{
     self as hal,
-    gpio::{Level, Output, Speed},
-    time::Hertz,
-    rcc::{self, Hse, HseMode, Pll, PllMul, PllPreDiv, PllQDiv, PllRDiv, Sysclk},
-    peripherals,
     can::{self, CanConfigurator, OperatingMode},
+    gpio::{Level, Output, Speed},
+    peripherals,
+    rcc::{self, Hse, HseMode, Pll, PllMul, PllPreDiv, PllQDiv, PllRDiv, Sysclk},
+    time::Hertz,
 };
-use embassy_time::{Timer, Duration};
+use embassy_time::{Duration, Timer};
 
 const N2K_BITRATE: u32 = 250_000;
 
@@ -23,6 +23,7 @@ hal::bind_interrupts!(struct CanIrqs {
     FDCAN1_IT1 => can::IT1InterruptHandler<peripherals::FDCAN1>;
 });
 
+/// This is a complet test out of the rest
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     // RCC minimal pour HSE 8 MHz + FDCAN sur HSE
@@ -51,11 +52,11 @@ async fn main(_spawner: Spawner) {
     // Envoi périodique d’une trame pour voir si tout tourne
     let id = embedded_can::StandardId::new(0x123).unwrap();
     let frame = can::Frame::new_data(id, &[1, 2, 3, 4]).unwrap();
-    
+
     loop {
         led.toggle();
         let dropped = can.write(&frame).await;
-        Timer::after(Duration::from_millis(100)).await;
+        Timer::after(Duration::from_millis(1500)).await;
         match dropped {
             Some(_old) => {
                 warn!("TX: frame envoyée, une ancienne trame a été drop");
