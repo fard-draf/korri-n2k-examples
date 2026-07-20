@@ -5,7 +5,10 @@ rustflags = [
 ]
 
 [target.xtensa-esp32s3-none-elf]
-runner = "espflash flash --monitor"
+# defmt logs go through RTT since esp-println was dropped, and
+# `espflash --monitor` cannot decode them. Fallback without logs if the JTAG
+# interface is not exposed: `espflash flash`.
+runner = "probe-rs run --chip esp32s3"
 
 [env]
 # DEFMT_LOG="info"

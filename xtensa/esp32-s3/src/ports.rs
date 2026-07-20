@@ -1,183 +1,120 @@
+use defmt::trace;
+use embassy_time::{with_timeout, Duration, Timer};
 use embedded_can::{Frame, Id};
-use embassy_time::{with_timeout, Duration};
 use esp_hal::{
-    twai::{EspTwaiError, EspTwaiFrame, ExtendedId as EspExtendedId, Twai, TwaiRx, TwaiTx},
+    twai::{EspTwaiError, EspTwaiFrame, ExtendedId as EspExtendedId, Twai},
     Async,
 };
 use korri_n2k::protocol::transport::{
-    can_frame::CanFrame, can_id::CanId, traits::can_bus::CanBus, CAN_SEND_TIMEOUT_MS,
+    can_frame::CanFrame,
+    can_id::CanId,
+    traits::{can_bus::CanBus, korri_timer::KorriTimer},
+    CAN_SEND_TIMEOUT_MS,
 };
 
-/// Adaptateur pour le contrôleur TWAI ESP32 implémentant le trait [`CanBus`] de korri-n2k.
+/// Async TWAI adapter that bridges the esp-hal controller with the `korri-n2k`
+/// transport traits.
 ///
-/// Cette implémentation fournit :
-/// - **Timeout automatique** sur l'envoi (100ms) pour éviter les blocages
-/// - **Support asynchrone** via Embassy
-/// - **Conformité NMEA2000** avec gestion des trames étendues 29 bits
+/// # ESP32 hardware limit
 ///
-/// # Limitations matérielles ESP32
-///
-/// Le contrôleur TWAI ESP32 possède un **buffer TX limité à 3 trames**.
-/// Les délais inter-frame Fast Packet gérés par korri-n2k sont essentiels
-/// pour éviter la saturation de ce buffer.
-///
-/// # Exemple
-///
-/// ```rust,ignore
-/// let can_config = esp_hal::twai::TwaiConfiguration::new(
-///     peripherals.TWAI0,
-///     can_rx_pin,
-///     can_tx_pin,
-///     BaudRate::B250K,
-///     TwaiMode::Normal,
-/// ).into_async();
-///
-/// let can_peripheral = can_config.start();
-/// let can_bus = EspCanBus::new(can_peripheral);
-/// ```
+/// The TWAI controller only has a 3-frame TX buffer, and esp-hal has no
+/// buffered driver like embassy-stm32's `BufferedCan`: `transmit_async` writes
+/// straight to the hardware. Hence the explicit send timeout, without which a
+/// saturated bus would block this task forever.
 pub struct EspCanBus<'d> {
     can: Twai<'d, Async>,
 }
 
 impl<'d> EspCanBus<'d> {
-    /// Crée un nouvel adaptateur CAN à partir d'un périphérique TWAI ESP32.
     pub fn new(can: Twai<'d, Async>) -> Self {
         Self { can }
     }
+}
 
-    /// Split le bus CAN en parties TX et RX séparées pour usage concurrent.
-    ///
-    /// Permet d'avoir des tâches distinctes pour l'émission et la réception.
-    pub fn split(self) -> (EspCanBusRx<'d>, EspCanBusTx<'d>) {
-        let (rx, tx) = self.can.split();
-        (EspCanBusRx { rx }, EspCanBusTx { tx })
+#[derive(Debug)]
+pub enum EspCanError {
+    Twai(EspTwaiError),
+    FrameCreate,
+    SendTimeout,
+}
+
+impl From<EspTwaiError> for EspCanError {
+    fn from(value: EspTwaiError) -> Self {
+        Self::Twai(value)
     }
 }
 
-// Wrapper pour la partie RX uniquement
-pub struct EspCanBusRx<'d> {
-    rx: TwaiRx<'d, Async>,
-}
-
-impl<'d> EspCanBusRx<'d> {
-    pub async fn recv(&mut self) -> Result<CanFrame, EspTwaiError> {
-        let frame = match self.rx.receive_async().await {
-            Ok(frame) => frame,
-            Err(e) => {
-                esp_println::println!("Erreur TWAI (RX split) : {:?}", e);
-                return Err(e);
-            }
-        };
-
-        let data_frame = frame.data();
-        let len = frame.dlc();
-
-        let id = match frame.id() {
-            Id::Standard(_) => {
-                esp_println::println!("Frame standard (RX split) ignorée");
-                return Err(EspTwaiError::BusOff);
-            }
-            Id::Extended(ext) => ext.as_raw(),
-        };
-
-        let mut data = [0u8; 8];
-        data[..len].copy_from_slice(data_frame);
-
-        let can_frame = CanFrame {
-            id: CanId(id),
-            data,
-            len,
-        };
-
-        if can_frame.id.pgn() == 60928 {
-            esp_println::println!("<<< RX CLAIM from SA={}", can_frame.id.source_address());
+impl defmt::Format for EspCanError {
+    fn format(&self, fmt: defmt::Formatter<'_>) {
+        match self {
+            EspCanError::Twai(err) => defmt::write!(fmt, "Twai({})", err),
+            EspCanError::FrameCreate => defmt::write!(fmt, "FrameCreate"),
+            EspCanError::SendTimeout => defmt::write!(fmt, "SendTimeout"),
         }
-
-        Ok(can_frame)
-    }
-}
-
-// Wrapper pour la partie TX uniquement
-pub struct EspCanBusTx<'d> {
-    tx: TwaiTx<'d, Async>,
-}
-
-impl<'d> EspCanBusTx<'d> {
-    pub async fn send(&mut self, frame: &CanFrame) -> Result<(), EspTwaiError> {
-        let ext_id = EspExtendedId::new(frame.id.0).unwrap();
-        let twai_frame = EspTwaiFrame::new(ext_id, &frame.data[..frame.len]).unwrap();
-
-        if frame.id.pgn() == 60928 {
-            esp_println::println!(">>> TX CLAIM from SA={}", frame.id.source_address());
-        }
-
-        self.tx.transmit_async(&twai_frame).await
     }
 }
 
 impl<'d> CanBus for EspCanBus<'d> {
-    type Error = EspTwaiError;
+    type Error = EspCanError;
 
-    async fn send(
-        &mut self,
-        frame: &CanFrame,
-    ) -> Result<(), EspTwaiError> {
-            let ext_id = EspExtendedId::new(frame.id.0).unwrap();
-            let twai_frame = EspTwaiFrame::new(ext_id, &frame.data[..frame.len]).unwrap();
+    async fn send(&mut self, frame: &CanFrame) -> Result<(), Self::Error> {
+        let ext_id = EspExtendedId::new(frame.id.0).ok_or(EspCanError::FrameCreate)?;
+        let twai_frame =
+            EspTwaiFrame::new(ext_id, &frame.data[..frame.len]).ok_or(EspCanError::FrameCreate)?;
 
-            if frame.id.pgn() == 60928 {
-                esp_println::println!(">>> TX CLAIM from SA={}", frame.id.source_address());
-            } else {
-                esp_println::println!(
-                    ">>> TX PGN={} from SA={}",
-                    frame.id.pgn(),
-                    frame.id.source_address()
-                );
-            }
+        trace!("HAL TX id=0x{=u32:X} len={}", frame.id.0, frame.len);
 
-            // Envoi avec timeout pour éviter blocage infini si buffer TX plein
-            // Timeout recommandé NMEA2000 : 100ms pour 1 trame @ 250kbps
-            with_timeout(
-                Duration::from_millis(CAN_SEND_TIMEOUT_MS as u64),
-                self.can.transmit_async(&twai_frame),
-            )
-            .await
-            .map_err(|_| EspTwaiError::BusOff)? // Timeout converti en erreur BusOff
-        }
+        // Only 3 frames fit in the hardware TX buffer.
+        with_timeout(
+            Duration::from_millis(CAN_SEND_TIMEOUT_MS as u64),
+            self.can.transmit_async(&twai_frame),
+        )
+        .await
+        .map_err(|_| EspCanError::SendTimeout)?
+        .map_err(EspCanError::from)
+    }
 
-    async fn recv(&mut self) -> Result<CanFrame, EspTwaiError>  {
-            let frame = match self.can.receive_async().await {
-                Ok(frame) => frame,
-                Err(e) => {
-                    esp_println::println!("Erreur TWAI en réception : {:?}", e);
-                    return Err(e);
+    async fn recv(&mut self) -> Result<CanFrame, Self::Error> {
+        loop {
+            match self.can.receive_async().await {
+                Ok(twai_frame) => {
+                    let raw_id = match twai_frame.id() {
+                        Id::Extended(id) => id.as_raw(),
+                        Id::Standard(_) => {
+                            continue; // non-n2k frame, skip silently
+                        }
+                    };
+                    let payload = twai_frame.data();
+                    let mut data = [0u8; 8];
+                    data[..payload.len()].copy_from_slice(payload);
+                    return Ok(CanFrame {
+                        id: CanId(raw_id),
+                        data,
+                        len: payload.len(),
+                    });
                 }
-            };
-
-            let data_frame = frame.data();
-            let len = frame.dlc();
-
-            let id = match frame.id() {
-                Id::Standard(_) => {
-                    esp_println::println!("Frame standard reçue → rejet");
-                    return Err(EspTwaiError::BusOff);
+                Err(err) => {
+                    // Transient errors: retry rather than kill the claim or
+                    // the runner.
+                    defmt::warn!("TWAI rx soft error (ignored): {}", EspCanError::Twai(err));
                 }
-                Id::Extended(ext) => ext.as_raw(),
-            };
-
-            let mut data = [0u8; 8];
-            data[..len].copy_from_slice(data_frame);
-
-            let can_frame = CanFrame {
-                id: CanId(id),
-                data,
-                len,
-            };
-
-            if can_frame.id.pgn() == 60928 {
-                esp_println::println!("<<< RX CLAIM from SA={}", can_frame.id.source_address());
             }
-
-            Ok(can_frame)
         }
+    }
+}
+
+/// Embassy timer adapter implementing `KorriTimer`.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct EspTimer;
+
+impl EspTimer {
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl KorriTimer for EspTimer {
+    async fn delay_ms(&mut self, millis: u32) {
+        Timer::after(Duration::from_millis(millis as u64)).await;
+    }
 }

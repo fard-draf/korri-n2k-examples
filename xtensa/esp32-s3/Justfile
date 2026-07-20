@@ -1,86 +1,85 @@
 # ESP32-S3 XTENSA
 
-# Shell propre
 set shell := ["zsh", "-uc"]
 set dotenv-load := true
 
-# Variables générales
 target       := "xtensa-esp32s3-none-elf"
 chip         := "esp32s3"
-profile      := "release"        # release ou debug
+profile      := "release"        # release or debug
 defmt_level  := "trace"          # default DEFMT_LOG
-default_bin  := "esp32s3"           # fallback
+default_bin  := "esp32s3"        # fallback
 
-# Recette par défaut : liste
+# List the recipes
 default:
     @just --list
 
 # ------------------------------------------------------------
-# BUILD
+# BUILD / RUN
 # ------------------------------------------------------------
 
 build bin=default_bin profile=profile:
     DEFMT_LOG="${DEFMT_LOG:-{{defmt_level}}}" \
     cargo build --{{profile}} --bin {{bin}}
 
-# ------------------------------------------------------------
-# RUN (flash + RTT via cargo runner)
-# ------------------------------------------------------------
-
-# run flash + rtt via cargo runner
+# Flash and show RTT logs, through the cargo runner
 run bin=default_bin profile=profile:
     DEFMT_LOG="${DEFMT_LOG:-{{defmt_level}}}" \
     cargo run --{{profile}} --bin {{bin}}
 
-# Penser a definir correctement les variables dans .cargo/config.toml
-# Exemple :
-#   just run talker
-#   just run receiver profile=debug
-#   DEFMT_LOG=trace just run feeder
+# Same, with an explicit defmt level: just run-log talker trace
+run-log bin=default_bin level="debug" profile=profile:
+    DEFMT_LOG="{{level}}" \
+    cargo run --{{profile}} --bin {{bin}}
 
-# ------------------------------------------------------------
-# FLASH (manuel si besoin)
-# ------------------------------------------------------------
-
-# Flash via cargo flash
+# Flash only
 flash bin=default_bin:
     cargo flash --chip {{chip}} --release --target {{target}} --bin {{bin}}
 
-# ------------------------------------------------------------
-# RTT
-# ------------------------------------------------------------
-
-# Rtt
+# RTT viewer
 rtt:
     cargo embed
 
 # ------------------------------------------------------------
-# SIZE
+# N2K CAPTURE (`sniffer` binary)
+#
+# defmt logs go to RTT via `just run sniffer`; the CDC port (/dev/ttyACM*)
+# carries the binary capture stream only.
 # ------------------------------------------------------------
 
-# Cargo size
+# Raw mode is required: in canonical mode the line discipline corrupts binary
+# data and eventually blocks the target on write. `exec 3<` keeps a descriptor
+# open across the `stty`, otherwise the settings are lost.
+
+# Record the raw stream to a file (Ctrl-C to stop)
+capture out="capture.bin" port="/dev/ttyACM0":
+    @echo "Capturing to {{out}} from {{port}} — Ctrl-C to stop"
+    exec 3< {{port}}; \
+      stty -F {{port}} raw -echo -echoe -echok -ixon -ixoff -icrnl -inlcr -igncr min 1 time 0; \
+      cat <&3 > {{out}}
+
+# Decode a recorded capture and print the integrity verdict
+decode file="capture.bin":
+    ./tools/decode_capture.py {{file}}
+
+# Live decode to CSV
+decode-live port="/dev/ttyACM0" out="capture.csv":
+    ./tools/decode_capture.py {{port}} --csv > {{out}}
+
+# Integrity report only, no frame listing
+verify file="capture.bin":
+    ./tools/decode_capture.py {{file}} --quiet
+
+# ------------------------------------------------------------
+# SIZE / CLEAN / LINT
+# ------------------------------------------------------------
+
 size bin=default_bin profile=profile:
     xtensa-esp32-elf-size target/xtensa-esp32s3-none-elf/release/{{bin}}
 
-# ------------------------------------------------------------
-# CLEAN / LINT
-# ------------------------------------------------------------
-
-# Cargo clean
 clean:
     cargo clean
 
-# Cargo fmt + Cargo clippy -D warnings
+# cargo fmt + clippy -D warnings
 fmt:
     cargo fmt
     cargo clippy --target {{target}} -- -D warnings
-
-# ------------------------------------------------------------
-# RUN avec override explicite du niveau DEFMT
-# usage : just run-log talker trace
-# ------------------------------------------------------------
-
-# Runner bin + loglevel
-run-log bin=default_bin level="debug" profile=profile:
-    DEFMT_LOG="{{level}}" \
-    cargo run --{{profile}} --bin {{bin}}

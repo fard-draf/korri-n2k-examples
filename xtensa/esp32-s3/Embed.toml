@@ -1,0 +1,8 @@
+[default.general]
+chip = "esp32s3"
+
+[default.rtt]
+enabled = true
+
+[default.defmt]
+enabled = true

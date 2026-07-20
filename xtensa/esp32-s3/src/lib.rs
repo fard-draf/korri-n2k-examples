@@ -1,7 +1,10 @@
 #![no_std]
-
-pub mod pgns;
-pub mod ports;
-pub mod timer;
-pub mod web_bridge;
+#![no_main]
+pub mod app;
+pub mod capture;
+pub mod conf;
+pub mod instances;
 pub mod manager_service;
+pub mod ports;
+pub mod starter;
+pub mod tasks;
