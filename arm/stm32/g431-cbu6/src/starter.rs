@@ -1,4 +1,3 @@
-use cortex_m::Peripherals;
 use defmt::info;
 use defmt_rtt as _;
 use embassy_stm32::can::OperatingMode;

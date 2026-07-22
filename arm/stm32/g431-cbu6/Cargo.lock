@@ -576,7 +576,6 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "critical-section",
  "defmt",
  "defmt-rtt",
  "embassy-executor",
@@ -584,8 +583,6 @@ dependencies = [
  "embassy-sync 0.6.2",
  "embassy-time 0.5.1",
  "embedded-can",
- "embedded-hal 1.0.0",
- "embedded-io 0.7.1",
  "korri-n2k",
  "panic-probe",
  "shared-core",
@@ -635,9 +632,9 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "korri-n2k"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12b2399ffe6da274e49daa13113866a5abe7cceba3416d254368b8360cc652fe"
+checksum = "c2c5fc372ae4c6257f0e08bbe66a6c89ac4d7c591fef6ad3fb146414e53ecf5d"
 dependencies = [
  "embassy-sync 0.6.2",
  "embassy-time 0.4.0",

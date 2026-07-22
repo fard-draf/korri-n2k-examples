@@ -4,39 +4,30 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# runtime async
 embassy-executor = { version = "0.9", features = ["arch-cortex-m", "executor-thread"] }
 embassy-time     = { version = "0.5", features = ["tick-hz-32_768"] }
 embassy-sync = "0.6.2"
-
-# HAL STM32
 embassy-stm32 = { version = "0.6", features = [
   "stm32g431cb",
   "time-driver-any",
   "exti",
-  "unstable-pac",
 ]}
 
-# Cortex-m / bare-metal
+# bare_metal
 cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7"
+static_cell = "2.1.1"
 
-# Logs via RTT
+# logs / panic
 defmt = "1.0"
 defmt-rtt = "1.1"
-
-# Panic via RTT
 panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 
-# Traits embedded-hal 
-embedded-hal = "1.0.0"
-embedded-io = "0.7.1"
-critical-section = "1.2.0"
-static_cell = "2.1.1"
-embedded-can = "0.4.1"
-
-# korri-n2k
-korri-n2k = "0.3"
+# n2k
+korri-n2k = "0.4"
 shared-core = { path = "../../../shared-core" }
+embedded-can = "0.4"
 
 [[bin]]
 name = "total"

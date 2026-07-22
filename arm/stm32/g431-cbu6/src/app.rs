@@ -29,7 +29,9 @@ pub async fn run(identity: &IsoIdentity) -> (ManagerRunner, Handle) {
         Stm32CanBus::new(can),
         Stm32Timer::new(),
         iso_name.raw(),
-        identity.preferred_address,
+        korri_n2k::protocol::managment::address_claiming::AddressClaimStrategy::Arbitrary {
+            preferred: identity.preferred_address,
+        },
     )
     .await
     {
