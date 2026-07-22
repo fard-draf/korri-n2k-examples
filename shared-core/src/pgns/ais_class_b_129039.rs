@@ -1,18 +1,15 @@
 use embassy_time::{Duration, Ticker};
 
 use korri_n2k::protocol::{
-        lookups::{AisMessageId, PositionAccuracy, RaimFlag, RepeatIndicator, TimeStamp},
-        messages::Pgn129039,
-    };
-
+    lookups::{AisMessageId, PositionAccuracy, RaimFlag, RepeatIndicator, TimeStamp},
+    messages::Pgn129039,
+};
 
 pub async fn task_ais_class_b_129039<const N: usize>(
     handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, N>,
-)
-
-{
+) {
     let mut ticker = Ticker::every(Duration::from_secs(30));
-    
+
     loop {
         ticker.next().await;
 
@@ -27,12 +24,6 @@ pub async fn task_ais_class_b_129039<const N: usize>(
         ais_pgn.time_stamp = TimeStamp::NotAvailable;
         ais_pgn.cog = 90.0;
         ais_pgn.sog = 3.0;
-
-        
-
-        
-
-        
 
         let _ = handle.send_pgn(&ais_pgn, 129039, 2, None).await;
     }

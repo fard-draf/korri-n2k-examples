@@ -1,46 +1,20 @@
 use embassy_time::{Duration, Ticker};
 
-use defmt::{info, error, Debug2Format};
-use korri_n2k::protocol::{messages::Pgn127503};
+use defmt::{Debug2Format, error, info};
+use korri_n2k::protocol::messages::Pgn127503;
 
-
-/// Tâche d'émission périodique du PGN 127503 (AC Input Status).
-///
-/// Cette tâche démontre l'utilisation de l'API simplifiée `send_pgn` qui gère
-/// automatiquement :
-/// - La sérialisation du PGN
-/// - La segmentation Fast Packet multi-trames
-/// - Les délais inter-frame (2ms) pour éviter la saturation du buffer TWAI
-/// - Le timeout sur chaque envoi (100ms)
-///
-/// # Comportement
-///
-/// Envoie un message PGN 127503 toutes les 1 seconde avec :
-/// - Instance : 0
-/// - Nombre de lignes AC : 1
-/// - Broadcast (destination = None)
-///
-/// # Conformité NMEA2000
-///
-/// Le PGN 127503 est un message Fast Packet qui peut générer plusieurs trames.
-/// Les délais inter-frame automatiques évitent les problèmes de saturation
-/// du buffer TX limité (3 frames) de l'ESP32 TWAI.
 pub async fn task_ac_input_127503<const N: usize>(
     handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, N>,
-)
-
-{
+) {
     let mut ticker = Ticker::every(Duration::from_secs(1));
 
     loop {
         ticker.next().await;
 
-        // Créer le message PGN 127503
         let mut ac_input_pgn = Pgn127503::new();
         ac_input_pgn.instance = 210;
         ac_input_pgn.number_of_lines = 185;
 
-        // Envoi simplifié avec gestion automatique Fast Packet et délais
         {
             match handle.send_pgn(&ac_input_pgn, 127503, 2, None).await {
                 Ok(_) => {

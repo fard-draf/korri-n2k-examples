@@ -1,19 +1,15 @@
 use embassy_time::{Duration, Ticker};
 
 use korri_n2k::protocol::{
-        lookups::{DirectionReference, DirectionRudder, SteeringMode, TurnMode, YesNo},
-        messages::Pgn127237,
-        transport::traits::pgn_sender::PgnSender,
-    };
-
+    lookups::{DirectionReference, DirectionRudder, SteeringMode, TurnMode, YesNo},
+    messages::Pgn127237,
+};
 
 pub async fn task_heading_control_127237<const N: usize>(
     handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, N>,
-)
-
-{
+) {
     let mut ticker = Ticker::every(Duration::from_millis(250));
-        let mut rudder_angle: f32 = 0.0;
+    let mut rudder_angle: f32 = 0.0;
 
     loop {
         ticker.next().await;
@@ -32,14 +28,6 @@ pub async fn task_heading_control_127237<const N: usize>(
         heading_pgn.track = 0.0;
 
         rudder_angle = (rudder_angle + 0.5) % 360.0;
-
-        
-
-        
-
-        
-
-        
 
         let _ = handle.send_pgn(&heading_pgn, 127237, 2, None).await;
     }

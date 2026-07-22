@@ -1,19 +1,13 @@
-use embassy_time::{Duration, Ticker};
 use defmt::{Debug2Format, error, info};
+use embassy_time::{Duration, Ticker};
 
-use korri_n2k::protocol::{
-        messages::Pgn128267,
-        transport::traits::pgn_sender::PgnSender,
-    };
-
+use korri_n2k::protocol::messages::Pgn128267;
 
 pub async fn task_depth_128267<const N: usize>(
     handle: &'static korri_n2k::protocol::managment::address_supervisor::AddressHandle<'static, N>,
-)
-
-{
+) {
     let mut ticker = Ticker::every(Duration::from_secs(1));
-    
+
     let mut sim_depth: u16 = 1;
 
     loop {
@@ -37,8 +31,4 @@ pub async fn task_depth_128267<const N: usize>(
             }
         }
     }
-
-        
-
-        
 }

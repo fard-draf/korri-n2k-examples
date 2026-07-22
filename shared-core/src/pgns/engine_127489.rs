@@ -28,20 +28,6 @@ pub async fn task_engine_127489<const N: usize>(
         engine_pgn.engine_load = 1 + (tilt as i8) % 100;
         engine_pgn.engine_torque = 1 + (tilt as i8) % 100;
 
-        // engine_pgn.instance = EngineInstance::SingleEngineOrDualEnginePort;
-        // engine_pgn.oil_pressure = 50.0;
-        // engine_pgn.oil_temperature = 10.0;
-        // engine_pgn.temperature = 70.0;
-        // engine_pgn.alternator_potential = 12.4;
-        // engine_pgn.fuel_rate = 95.0;
-        // engine_pgn.total_engine_hours = 15200;
-        // engine_pgn.coolant_pressure = 152.0;
-        // engine_pgn.fuel_pressure = 168.7;
-        // engine_pgn.set_discrete_status1_bit(EngineStatus1::LowOilLevel, true);
-        // engine_pgn.set_discrete_status2_bit(EngineStatus2::EngineCommError, true);
-        // engine_pgn.engine_load = 55;
-        // engine_pgn.engine_torque = 70;
-
         tilt = tilt.wrapping_add(1);
 
         let _ = handle.send_pgn(&engine_pgn, 127489, 2, None).await;
