@@ -51,7 +51,7 @@ defmt = "1.0"
 defmt-rtt = "1.0"
 esp-backtrace = { version = "0.17.0", features = ["defmt", "esp32s3", "panic-handler", "exception-handler"] }
 
-korri-n2k = "0.3"
+korri-n2k = "0.4"
 shared-core = { path = "../../shared-core" }
 
 [profile.dev]

@@ -1,4 +1,5 @@
 use defmt::{error, info};
+use korri_n2k::protocol::managment::address_claiming::AddressClaimStrategy;
 
 use crate::{
     instances::IsoIdentity,
@@ -29,7 +30,9 @@ pub async fn run(identity: &IsoIdentity) -> (ManagerRunner, Handle) {
         EspCanBus::new(can),
         EspTimer::new(),
         iso_name.raw(),
-        identity.preferred_address,
+        AddressClaimStrategy::Arbitrary {
+            preferred: identity.preferred_address,
+        },
     )
     .await
     {

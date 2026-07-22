@@ -8,8 +8,11 @@ use static_cell::StaticCell;
 
 const COMMAND_CAPACITY: usize = 16;
 
-pub type AddressManagerType =
-    korri_n2k::protocol::managment::address_manager::AddressManager<EspCanBus<'static>, EspTimer>;
+pub type AddressManagerType<'a> = korri_n2k::protocol::managment::address_manager::AddressManager<
+    'a,
+    EspCanBus<'static>,
+    EspTimer,
+>;
 
 pub type ManagerRunner = korri_n2k::protocol::managment::address_supervisor::AddressRunner<
     'static,
@@ -26,7 +29,7 @@ static COMMAND_CHANNEL: StaticCell<
 > = StaticCell::new();
 static MANAGER_HANDLE: StaticCell<AddressHandle<'static, COMMAND_CAPACITY>> = StaticCell::new();
 
-pub fn init_manager(manager: AddressManagerType) -> (ManagerRunner, Handle) {
+pub fn init_manager(manager: AddressManagerType<'static>) -> (ManagerRunner, Handle) {
     let chan = COMMAND_CHANNEL.init_with(Channel::new);
     let service = AddressService::<_, _, COMMAND_CAPACITY, 0>::new(manager, Some(chan), None);
     let parts = service.into_parts();
