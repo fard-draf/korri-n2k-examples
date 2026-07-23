@@ -30,6 +30,9 @@ CHANNEL_DEPTH = 1024
 BACKLOG_LIMIT = 32
 BROADCAST = 0xFF
 
+# Past half the 16-bit space, a sequence jump is a step backwards.
+SEQ_BACKWARDS = 0x8000
+
 PGN_NAMES = {
     59392: "ISO Acknowledgement",
     59904: "ISO Request",
@@ -50,6 +53,7 @@ PGN_NAMES = {
     127245: "Rudder",
     127250: "Vessel Heading",
     127251: "Rate of Turn",
+    127252: "Heave",
     127257: "Attitude",
     127258: "Magnetic Variation",
     127488: "Engine, Rapid Update",
@@ -82,6 +86,10 @@ PGN_NAMES = {
     129291: "Set & Drift, Rapid",
     129539: "GNSS DOPs",
     129540: "GNSS Sats in View",
+    129793: "AIS UTC and Date Report",
+    129794: "AIS Class A Static and Voyage",
+    129809: "AIS Class B CS Static A",
+    129810: "AIS Class B CS Static B",
     130306: "Wind Data",
     130310: "Environmental Parameters",
     130311: "Environmental Parameters",
@@ -120,7 +128,16 @@ def err(text, code=None):
 # ---------------------------------------------------------------------- format
 
 def pgn_name(pgn):
-    return PGN_NAMES.get(pgn, "—")
+    if pgn in PGN_NAMES:
+        return PGN_NAMES[pgn]
+    # J1939/N2K proprietary ranges: no public definition, but not unknown.
+    # Proprietary A is two single PDU1 PGNs, not a range: 0xF000-0xFEFF are
+    # standard ISO/J1939 PDU2 PGNs.
+    if pgn in (61184, 126720):
+        return "proprietary A"
+    if 65280 <= pgn <= 65535 or 130816 <= pgn <= 131071:
+        return "proprietary B"
+    return "—"
 
 
 def hex_bytes(data):
@@ -204,6 +221,7 @@ def records(stream, integrity):
             elif not looks_valid(buffer[:RECORD_SIZE]):
                 # Sync lost: search again, shifted by one byte.
                 integrity.resyncs += 1
+                integrity.note_noise(buffer[:RECORD_SIZE])
                 synced = False
                 buffer = buffer[1:]
                 continue
@@ -270,6 +288,11 @@ class Integrity:
         self.bytes_read = 0
         self.synced = False
         self.bad_stats = 0
+        self.reboots = 0
+        self.restarts = 0
+        self.noise_bytes = 0
+        self.noise_text = 0
+        self.non_n2k = 0
         self.first_stats = None
         self.last_stats = None
         self.bitrate = None
@@ -278,13 +301,27 @@ class Integrity:
         self.first_us = None
         self.last_us = None
 
+    def note_noise(self, chunk):
+        # Printable bytes point at console or bootloader output mixed into the
+        # stream, rather than a truncated record.
+        self.noise_bytes += len(chunk)
+        if sum(1 for b in chunk if 0x20 <= b < 0x7F or b in (0x0A, 0x0D)) > len(chunk) * 0.8:
+            self.noise_text += 1
+
     def check_seq(self, seq):
         self.records += 1
         if self.expected_seq is not None and seq != self.expected_seq:
             missing = (seq - self.expected_seq) & 0xFFFF
-            self.link_gaps += 1
-            self.link_lost += missing
-            self.worst_gap = max(self.worst_gap, missing)
+            if missing > SEQ_BACKWARDS:
+                # The sequence moved backwards, which no loss can do: the
+                # target restarted and began numbering from zero again.
+                self.restarts += 1
+                self.first_stats = None
+                self.last_stats = None
+            else:
+                self.link_gaps += 1
+                self.link_lost += missing
+                self.worst_gap = max(self.worst_gap, missing)
         self.expected_seq = (seq + 1) & 0xFFFF
 
     def record_frame(self, timestamp_us, pgn, source):
@@ -295,12 +332,28 @@ class Integrity:
             self.first_us = timestamp_us
         self.last_us = timestamp_us
 
+    def is_reboot(self, snapshot):
+        """A counter reset means the target restarted, not a corrupted record."""
+        return (
+            plausible(snapshot)
+            and self.last_stats is not None
+            and snapshot["frames_rx"] < self.last_stats["frames_rx"]
+        )
+
+    def note_reboot(self):
+        # A fresh session restarts both the counters and the sequence numbers,
+        # so neither can be compared across the boundary.
+        self.reboots += 1
+        self.expected_seq = None
+        self.first_stats = None
+        self.last_stats = None
+
     def record_stats(self, snapshot):
         # Target counters accumulate since its boot, usually well before the
         # capture started. Only the delta describes the captured window.
         #
-        # Two filters reject snapshots from a corrupted record: the firmware
-        # invariants, then counter monotonicity.
+        # A snapshot breaking the firmware invariants comes from a corrupted
+        # record; one that merely goes backwards is handled as a reboot.
         if not plausible(snapshot):
             self.bad_stats += 1
             return
@@ -374,11 +427,22 @@ class Integrity:
     def _integrity(self):
         lines = [rule("Integrity"), ""]
 
+        restarts = self.reboots + self.restarts
+        if restarts:
+            lines.append(field("target", err(
+                f"restarted {restarts}x during the capture - counters and "
+                "sequence numbers reset, so only the last session is measured",
+                YELLOW)))
+
         if self.resyncs:
-            lines.append(field("resyncs", err(f"{self.resyncs} - stream truncated or interrupted",
-                                              YELLOW)))
+            detail = (f"{self.noise_bytes} bytes of console or bootloader output"
+                      if self.noise_text else "stream truncated or interrupted")
+            lines.append(field("resyncs", err(f"{self.resyncs} - {detail}", YELLOW)))
         if self.bad_stats:
             lines.append(field("snapshots", err(f"{self.bad_stats} corrupted, discarded", YELLOW)))
+        if self.non_n2k:
+            lines.append(field("non-N2K", err(
+                f"{self.non_n2k} standard or remote frames, not decoded", YELLOW)))
 
         if self.link_gaps:
             lines.append(field("USB link", err(
@@ -424,13 +488,16 @@ class Integrity:
         return lines
 
     def _verdict(self, first, last, delta):
+        # Losses come first: a broken stream must never be reported as merely
+        # too short to judge.
+        lost = [k for k in ("channel_drops", "hw_overruns", "sink_drops") if delta[k]]
+        if self.link_gaps or lost:
+            return field("VERDICT", err("capture INCOMPLETE", f"{BOLD};{RED}"))
+
         if first is last:
             return field("VERDICT", err(
                 "window too short - capture for more than two seconds", YELLOW))
 
-        lost = [k for k in ("channel_drops", "hw_overruns", "sink_drops") if delta[k]]
-        if self.link_gaps or lost:
-            return field("VERDICT", err("capture INCOMPLETE", f"{BOLD};{RED}"))
         return field("VERDICT", err("capture complete", f"{BOLD};{GREEN}"))
 
 
@@ -507,13 +574,26 @@ def main():
                         integrity.bitrate = struct.unpack_from("<I", record, 8)[0]
                     continue
 
-                integrity.check_seq(struct.unpack_from("<H", record, 2)[0])
-
                 if record[0] == RECORD_STATS:
-                    integrity.record_stats(parse_stats(record))
+                    snapshot = parse_stats(record)
+                    # Checked before the sequence, otherwise the restart shows
+                    # up as a huge phantom gap.
+                    if integrity.is_reboot(snapshot):
+                        integrity.note_reboot()
+                    else:
+                        integrity.check_seq(struct.unpack_from("<H", record, 2)[0])
+                    integrity.record_stats(snapshot)
                     continue
 
+                integrity.check_seq(struct.unpack_from("<H", record, 2)[0])
+
                 frame = parse_frame(record)
+                # An 11-bit id holds no PGN, and an RTR frame carries no data:
+                # decoding either would invent a message that was never sent.
+                if not frame["extended"] or frame["remote"]:
+                    integrity.non_n2k += 1
+                    continue
+
                 priority, pgn, source, destination = decode_n2k_id(frame["id"])
                 integrity.record_frame(frame["timestamp_us"], pgn, source)
 
