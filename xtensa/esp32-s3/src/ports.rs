@@ -1,15 +1,18 @@
 use defmt::trace;
-use embassy_time::{with_timeout, Duration, Timer};
+use embassy_time::{Duration, Instant, Timer, with_timeout};
 use embedded_can::{Frame, Id};
 use esp_hal::{
-    twai::{EspTwaiError, EspTwaiFrame, ExtendedId as EspExtendedId, Twai},
     Async,
+    twai::{EspTwaiError, EspTwaiFrame, ExtendedId as EspExtendedId, Twai},
 };
 use korri_n2k::protocol::transport::{
+    CAN_SEND_TIMEOUT_MS,
     can_frame::CanFrame,
     can_id::CanId,
-    traits::{can_bus::CanBus, korri_timer::KorriTimer},
-    CAN_SEND_TIMEOUT_MS,
+    traits::{
+        can_bus::CanBus,
+        korri_timer::{Clock, KorriTimer},
+    },
 };
 
 /// Async TWAI adapter that bridges the esp-hal controller with the `korri-n2k`
@@ -23,11 +26,18 @@ use korri_n2k::protocol::transport::{
 /// saturated bus would block this task forever.
 pub struct EspCanBus<'d> {
     can: Twai<'d, Async>,
+    rx_errors: u32,
 }
 
 impl<'d> EspCanBus<'d> {
     pub fn new(can: Twai<'d, Async>) -> Self {
-        Self { can }
+        Self { can, rx_errors: 0 }
+    }
+
+    /// Soft receive errors swallowed since boot. They never reach the runner,
+    /// so this counter is the only way to see the bus degrading.
+    pub fn rx_errors(&self) -> u32 {
+        self.rx_errors
     }
 }
 
@@ -95,7 +105,8 @@ impl<'d> CanBus for EspCanBus<'d> {
                 }
                 Err(err) => {
                     // Transient errors: retry rather than kill the claim or
-                    // the runner.
+                    // the runner. Counted so a caller can still see them.
+                    self.rx_errors = self.rx_errors.saturating_add(1);
                     defmt::warn!("TWAI rx soft error (ignored): {}", EspCanError::Twai(err));
                 }
             }
@@ -110,6 +121,14 @@ pub struct EspTimer;
 impl EspTimer {
     pub const fn new() -> Self {
         Self
+    }
+}
+
+/// Milliseconds since boot. Monotonic, never stepped, and 64 bits wide, which
+/// is what the claim engine asks of a clock.
+impl Clock for EspTimer {
+    fn now_ms(&self) -> u64 {
+        Instant::now().as_millis()
     }
 }
 

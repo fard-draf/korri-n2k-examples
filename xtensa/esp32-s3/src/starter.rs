@@ -2,11 +2,11 @@ use defmt::info;
 use defmt_rtt as _;
 use esp_backtrace as _;
 use esp_hal::{
+    Async,
     clock::CpuClock,
     peripherals::{GPIO41, GPIO42, TWAI0},
     timer::timg::TimerGroup,
     twai::{Twai, TwaiConfiguration, TwaiMode},
-    Async,
 };
 
 use crate::conf::*;

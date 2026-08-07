@@ -3,12 +3,15 @@ use embassy_stm32::can::{
     self, Frame as HalFrame,
     enums::{BusError, FrameCreateError},
 };
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Instant, Timer};
 use embedded_can::Id;
 use korri_n2k::protocol::transport::{
     can_frame::CanFrame,
     can_id::CanId,
-    traits::{can_bus::CanBus, korri_timer::KorriTimer},
+    traits::{
+        can_bus::CanBus,
+        korri_timer::{Clock, KorriTimer},
+    },
 };
 
 /// Async CAN adapter that bridges the Embassy FDCAN driver with the `korri-n2k`
@@ -77,7 +80,7 @@ impl<'d, const TX_BUF: usize, const RX_BUF: usize> CanBus for Stm32CanBus<'d, TX
 
     async fn send(&mut self, frame: &CanFrame) -> Result<(), Self::Error> {
         let hal_frame = HalFrame::new_extended(frame.id.0, &frame.data[..frame.len])
-            .map_err(|err| Self::Error::from(err))?;
+            .map_err(Self::Error::from)?;
         trace!("HAL TX id=0x{=u32:X} len={}", frame.id.0, frame.len);
         self.inner.write(hal_frame).await;
         Ok(())
@@ -104,8 +107,8 @@ impl<'d, const TX_BUF: usize, const RX_BUF: usize> CanBus for Stm32CanBus<'d, TX
                     });
                 }
                 Err(err) => {
-                    // BusOff: the FDCAN controller disabled itself — unrecoverable.
-                    // All other errors (Warning, Passive, Stuff, Form, Ack, Crc…)
+                    // BusOff: the FDCAN controller disabled itself, unrecoverable.
+                    // All other errors (Warning, Passive, Stuff, Form, Ack, Crc)
                     // are transient; retry rather than killing the claim or runner.
                     defmt::warn!("CAN rx soft error (ignored): {}", Stm32CanError::Bus(err));
                 }
@@ -124,11 +127,16 @@ impl Stm32Timer {
     }
 }
 
+/// Milliseconds since boot. Monotonic, never stepped, and 64 bits wide, which
+/// is what the claim engine asks of a clock.
+impl Clock for Stm32Timer {
+    fn now_ms(&self) -> u64 {
+        Instant::now().as_millis()
+    }
+}
+
 impl KorriTimer for Stm32Timer {
-    async fn delay_ms(&mut self, millis: u32) -> () {
-        async move {
-            Timer::after(Duration::from_millis(millis as u64)).await;
-        }
-        .await
+    async fn delay_ms(&mut self, millis: u32) {
+        Timer::after(Duration::from_millis(millis as u64)).await;
     }
 }

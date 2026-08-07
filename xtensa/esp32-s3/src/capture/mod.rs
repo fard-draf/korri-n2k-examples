@@ -22,5 +22,5 @@ pub mod wire;
 pub const CAPTURE_DEPTH: usize = 1024;
 
 pub use can_reader::can_reader;
-pub use frame::{CaptureStats, StatsSnapshot, TimestampedFrame, STATS};
+pub use frame::{CaptureStats, STATS, StatsSnapshot, TimestampedFrame};
 pub use usb_sink::usb_sink;

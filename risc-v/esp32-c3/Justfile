@@ -1,37 +1,34 @@
+# ESP32-C3 RISC-V
+
 set shell := ["zsh", "-uc"]
 set dotenv-load := true
 
-# Variables générales
-profile      := "release"         # "debug" ou "release"
-defmt_level  := "trace"           # valeur par défaut de DEFMT_LOG
-default_bin  := "talker_fight3"   # binaire fallback
+profile      := "release"        # release or debug
+defmt_level  := "trace"          # default DEFMT_LOG
+default_bin  := "total"          # fallback
 
-# Recette par défaut : liste
+# List the recipes
 default:
     @just --list
 
 # ------------------------------------------------------------
-# BUILD
+# BUILD / RUN
 # ------------------------------------------------------------
 
-# Build d'un seul binaire, pas tout le repo
+# Build one binary, not the whole repo
 build bin=default_bin profile=profile:
     DEFMT_LOG="${DEFMT_LOG:-{{defmt_level}}}" \
     cargo build --{{profile}} --bin {{bin}}
 
-# ------------------------------------------------------------
-# RUN (utilise le runner défini dans .cargo/config.toml)
-# ------------------------------------------------------------
-
+# Flash and monitor, through the runner in .cargo/config.toml
 run bin=default_bin profile=profile:
     DEFMT_LOG="${DEFMT_LOG:-{{defmt_level}}}" \
     cargo run --{{profile}} --bin {{bin}}
 
-# Exemples :
-#   just run                # -> talker_fight3
-#   just run talker_fight2  # -> binaire src/bin/talker_fight2.rs
-#   just run talker_fight3 profile=debug
-#   DEFMT_LOG=debug just run talker_fight3
+# Examples:
+#   just run                # -> total
+#   just run dual_run_1
+#   DEFMT_LOG=debug just run stress_all
 
 # ------------------------------------------------------------
 # CLEAN / LINT
@@ -40,6 +37,7 @@ run bin=default_bin profile=profile:
 clean:
     cargo clean
 
+# cargo fmt + clippy -D warnings
 fmt:
     cargo fmt
     cargo clippy -- -D warnings

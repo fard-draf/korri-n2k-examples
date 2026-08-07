@@ -1,7 +1,7 @@
 //! Binary format of the capture stream: fixed 24-byte records, little-endian.
 //!
 //! Every record carries a sequence number, so the decoder can spot losses that
-//! happened on the USB link — which the target's own counters cannot see.
+//! happened on the USB link, which the target's own counters cannot see.
 
 use super::frame::{StatsSnapshot, TimestampedFrame};
 

@@ -1,6 +1,7 @@
 use super::Handle;
+use shared_core::{publisher::publish, samples::Datum};
 
 #[embassy_executor::task]
 pub async fn task_datum_129044(handle: Handle) {
-    shared_core::pgns::datum_129044::task_datum_129044(handle).await;
+    publish(handle, Datum::new()).await;
 }

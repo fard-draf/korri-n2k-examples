@@ -7,7 +7,7 @@ target       := "xtensa-esp32s3-none-elf"
 chip         := "esp32s3"
 profile      := "release"        # release or debug
 defmt_level  := "trace"          # default DEFMT_LOG
-default_bin  := "esp32s3"        # fallback
+default_bin  := "total"           # fallback
 
 # List the recipes
 default:
@@ -24,7 +24,7 @@ build bin=default_bin profile=profile:
 # Flash and show RTT logs, through the cargo runner
 run bin=default_bin profile=profile:
     DEFMT_LOG="${DEFMT_LOG:-{{defmt_level}}}" \
-    cargo run --{{profile}} --bin {{bin}}
+    cargo run --{{profile}} --bin {{bin}} -- --no-location
 
 # Same, with an explicit defmt level: just run-log talker trace
 run-log bin=default_bin level="debug" profile=profile:
@@ -52,7 +52,7 @@ rtt:
 
 # Record the raw stream to a file (Ctrl-C to stop)
 capture out="capture.bin" port="/dev/ttyACM0":
-    @echo "Capturing to {{out}} from {{port}} — Ctrl-C to stop"
+    @echo "Capturing to {{out}} from {{port}}, Ctrl-C to stop"
     exec 3< {{port}}; \
       stty -F {{port}} raw -echo -echoe -echok -ixon -ixoff -icrnl -inlcr -igncr min 1 time 0; \
       cat <&3 > {{out}}

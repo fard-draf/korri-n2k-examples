@@ -1,13 +1,18 @@
 [package]
-name = "socketcan-receiver"
+name = "socketcan-node"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-korri-n2k = "0.4"
-socketcan = "3.3.0"
+korri-n2k = { version = "0.7.0", features = [
+  "tokio",
+] }
+shared-core = { path = "../../shared-core", default-features = false, features = [
+  "tokio",
+] }
+socketcan = { version = "3.6", features = ["tokio"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 anyhow = "1.0"
-chrono = "0.4"
 
 [profile.release]
 lto = false

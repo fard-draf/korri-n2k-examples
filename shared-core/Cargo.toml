@@ -3,8 +3,15 @@ name = "shared-core"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["embassy"]
+# korri-n2k refuses both runtimes at once, so these two are exclusive here too.
+embassy = ["korri-n2k/embassy", "korri-n2k/defmt", "dep:embassy-time", "dep:defmt"]
+tokio = ["std", "korri-n2k/tokio", "dep:tokio"]
+std = []
+
 [dependencies]
-korri-n2k = "0.4"
-embassy-time = "0.5"
-embassy-sync = "0.6"
-defmt = "1.0"
+korri-n2k = { version = "0.7.0", default-features = false }
+embassy-time = { version = "0.5", optional = true }
+defmt = { version = "1.0", optional = true }
+tokio = { version = "1", optional = true, features = ["time"] }

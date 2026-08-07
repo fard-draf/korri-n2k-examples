@@ -7,13 +7,13 @@ use esp_backtrace as _;
 esp_bootloader_esp_idf::esp_app_desc!();
 use esp32_s3::{
     app::{idle_forever, run},
-    instances::inst3::IDENTITY,
     manager_service, tasks,
 };
+use shared_core::instances::IDENTITY_3;
 
 #[esp_hal_embassy::main]
 async fn main(spawner: embassy_executor::Spawner) {
-    let (runner, handle) = run(&IDENTITY).await;
+    let (runner, handle) = run(&IDENTITY_3);
 
     spawner
         .spawn(manager_service::address_manager_task(runner))

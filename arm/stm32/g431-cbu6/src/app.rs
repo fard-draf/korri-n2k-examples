@@ -1,19 +1,23 @@
-use defmt::{error, info};
+use defmt::{Debug2Format, info};
+use korri_n2k::protocol::management::{address_manager::AddressManager, iso_name::IsoName};
+
+use shared_core::instances::IsoIdentity;
 
 use crate::{
-    instances::IsoIdentity,
     manager_service::{self, Handle, ManagerRunner},
     ports::{Stm32CanBus, Stm32Timer},
     starter::{init_bsp, init_can},
 };
 
-pub async fn run(identity: &IsoIdentity) -> (ManagerRunner, Handle) {
+/// Bring up the board and build the N2K stack. Nothing touches the bus yet:
+/// the address claim starts when the runner is spawned.
+pub fn run(identity: &IsoIdentity) -> (ManagerRunner, Handle) {
     let p = init_bsp();
     let can = init_can(p);
 
     info!("Embassy up. Bringing up korri-n2k stack.");
 
-    let iso_name = korri_n2k::protocol::managment::iso_name::IsoName::builder()
+    let iso_name = IsoName::builder()
         .unique_number(identity.unique_number)
         .manufacturer_code(identity.manufacturer_code)
         .device_function(identity.device_function)
@@ -21,29 +25,23 @@ pub async fn run(identity: &IsoIdentity) -> (ManagerRunner, Handle) {
         .device_instance(identity.device_instance)
         .system_instance(identity.system_instance)
         .industry_group(identity.industry_group)
-        .arbitrary_address_capable(true)
+        .arbitrary_address_capable(identity.is_arbitrary_address_capable())
         .build();
-    info!("ISO NAME: 0x{=u64:X}", iso_name.raw());
+    info!(
+        "ISO NAME: 0x{=u64:X}, strategy {}",
+        iso_name.raw(),
+        Debug2Format(&identity.strategy)
+    );
 
-    let manager = match korri_n2k::protocol::managment::address_manager::AddressManager::new(
+    // Synchronous. It only fails when the NAME contradicts the strategy, and the
+    // identity derives the AAC bit from that strategy, so it cannot.
+    let manager = AddressManager::new(
         Stm32CanBus::new(can),
         Stm32Timer::new(),
-        iso_name.raw(),
-        korri_n2k::protocol::managment::address_claiming::AddressClaimStrategy::Arbitrary {
-            preferred: identity.preferred_address,
-        },
+        iso_name,
+        identity.strategy,
     )
-    .await
-    {
-        Ok(mgr) => {
-            info!("Address claimed: {}", mgr.current_address());
-            mgr
-        }
-        Err(_) => {
-            error!("Failed to claim an address on the NMEA2000 bus");
-            panic!("address claim failed");
-        }
-    };
+    .expect("NAME and address claim strategy disagree");
 
     manager_service::init_manager(manager)
 }

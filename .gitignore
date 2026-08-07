@@ -1,2 +1,8 @@
 **/target/
 **/.rustc_info.json
+**/__pycache__/
+
+# Bus captures and their reports: local data, not example code.
+*.bin
+*.log
+rapport_*.txt

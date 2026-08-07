@@ -5,7 +5,7 @@ target       := "thumbv7em-none-eabihf"
 chip         := "STM32G431CBUx"
 profile      := "release"                   # release or debug
 defmt_level  := "info"                     # default DEFMT_LOG
-default_bin  := "stm32-g431-cbu6"           # fallback
+default_bin  := "total"                      # fallback
 
 # List
 default:

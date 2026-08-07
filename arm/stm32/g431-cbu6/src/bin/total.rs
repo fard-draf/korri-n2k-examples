@@ -4,14 +4,14 @@
 use defmt_rtt as _;
 use g431_cbu6::{
     app::{idle_forever, run},
-    instances::inst1::IDENTITY,
     manager_service, tasks,
 };
 use panic_probe as _;
+use shared_core::instances::IDENTITY_1;
 
 #[embassy_executor::main]
 async fn main(spawner: embassy_executor::Spawner) {
-    let (runner, handle) = run(&IDENTITY).await;
+    let (runner, handle) = run(&IDENTITY_1);
 
     spawner
         .spawn(manager_service::address_manager_task(runner))

@@ -1,6 +1,7 @@
 use super::Handle;
+use shared_core::{publisher::publish, samples::Navigation};
 
 #[embassy_executor::task]
 pub async fn task_navigation_129284(handle: Handle) {
-    shared_core::pgns::navigation_129284::task_navigation_129284(handle).await;
+    publish(handle, Navigation::new()).await;
 }

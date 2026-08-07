@@ -1,86 +1,61 @@
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    channel::Channel,
+use crate::ports::{EspCanBus, EspTimer};
+
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
+use korri_n2k::protocol::management::address_supervisor::{
+    AddressHandle, AddressService, ClaimedAddress, SupervisorCommand,
 };
 use static_cell::StaticCell;
 
-use korri_n2k::{
-    infra::codec::traits::PgnData,
-    protocol::managment::{
-        address_manager::AddressManager,
-        address_supervisor::{
-            AddressHandle, AddressHandleError, AddressRunner, AddressService, SupervisorCommand,
-        },
-    },
-    protocol::transport::can_frame::CanFrame,
-};
-
-use crate::{ports::EspCanBus, timer::EspTimer};
-
-pub type AddressManagerType = AddressManager<EspCanBus<'static>, EspTimer>;
-pub type ManagerRunner =
-    AddressRunner<'static, EspCanBus<'static>, EspTimer, COMMAND_CAPACITY, 0>;
-
 const COMMAND_CAPACITY: usize = 16;
 
-static COMMAND_CHANNEL: StaticCell<
-    Channel<CriticalSectionRawMutex, SupervisorCommand, COMMAND_CAPACITY>,
-> = StaticCell::new();
-static MANAGER_HANDLE: StaticCell<ManagerHandle> = StaticCell::new();
+pub type AddressManagerType<'a> = korri_n2k::protocol::management::address_manager::AddressManager<
+    'a,
+    EspCanBus<'static>,
+    EspTimer,
+>;
 
-#[derive(Clone, Copy, Debug)]
-pub enum ManagerClientError {
-    Serialization,
-}
+pub type ManagerRunner = korri_n2k::protocol::management::address_supervisor::AddressRunner<
+    'static,
+    EspCanBus<'static>,
+    EspTimer,
+    COMMAND_CAPACITY,
+    0,
+>;
 
-pub struct ManagerHandle {
-    handle: AddressHandle<'static, COMMAND_CAPACITY>,
-}
+pub type Handle = &'static AddressHandle<'static, COMMAND_CAPACITY>;
 
-impl ManagerHandle {
-    pub async fn send_pgn<P: PgnData>(
-        &self,
-        data: &P,
-        pgn: u32,
-        priority: u8,
-        destination: Option<u8>,
-    ) -> Result<(), ManagerClientError> {
-        self.handle
-            .send_pgn(data, pgn, priority, destination)
-            .await
-            .map_err(|err| match err {
-                AddressHandleError::Serialization => ManagerClientError::Serialization,
-            })
-    }
+/// Both are `const`, so no allocation and no `StaticCell` is needed.
+static COMMAND_CHANNEL: Channel<CriticalSectionRawMutex, SupervisorCommand, COMMAND_CAPACITY> =
+    Channel::new();
+static CLAIMED: ClaimedAddress = ClaimedAddress::new();
 
-    pub async fn send_frame(&self, frame: &CanFrame) {
-        self.handle.send_frame(frame).await;
-    }
-}
+/// The handle is built at runtime, so this one still needs a cell.
+static MANAGER_HANDLE: StaticCell<AddressHandle<'static, COMMAND_CAPACITY>> = StaticCell::new();
 
-pub fn init_manager(
-    manager: AddressManagerType,
-) -> (ManagerRunner, &'static ManagerHandle) {
-    let channel = COMMAND_CHANNEL.init_with(Channel::new);
-
+/// No frame channel: these binaries only talk. Pass one to `AddressService` to
+/// read incoming traffic.
+pub fn init_manager(manager: AddressManagerType<'static>) -> (ManagerRunner, Handle) {
     let service = AddressService::<_, _, COMMAND_CAPACITY, 0>::new(
         manager,
-        Some(channel),
+        Some(&COMMAND_CHANNEL),
         None,
+        &CLAIMED,
     );
-
     let parts = service.into_parts();
     let handle = parts
         .handle
         .expect("command channel ensures handle availability");
-    let manager_handle = MANAGER_HANDLE.init(ManagerHandle { handle });
-
-    (parts.runner, manager_handle)
+    (parts.runner, MANAGER_HANDLE.init(handle))
 }
 
+/// The claim campaign starts here, not in `AddressManager::new`.
+///
+/// `drive` returns only on a bus error, and that error is terminal: the node
+/// keeps no address and nothing restarts the loop.
 #[embassy_executor::task]
 pub async fn address_manager_task(runner: ManagerRunner) {
+    defmt::info!("Address supervisor runner spawned");
     if let Err(err) = runner.drive().await {
-        defmt::warn!("Address supervisor stopped");
+        defmt::error!("address management stopped: {}", defmt::Debug2Format(&err));
     }
 }

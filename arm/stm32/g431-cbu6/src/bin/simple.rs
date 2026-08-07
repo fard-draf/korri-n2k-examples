@@ -49,7 +49,7 @@ async fn main(_spawner: Spawner) {
 
     let mut can = init_fdcan(p.FDCAN1, p.PA11, p.PA12, CanIrqs);
 
-    // Envoi périodique d’une trame pour voir si tout tourne
+    // Send a frame periodically to check the bus is alive
     let id = embedded_can::StandardId::new(0x123).unwrap();
     let frame = can::Frame::new_data(id, &[1, 2, 3, 4]).unwrap();
 
@@ -59,10 +59,10 @@ async fn main(_spawner: Spawner) {
         Timer::after(Duration::from_millis(1500)).await;
         match dropped {
             Some(_old) => {
-                warn!("TX: frame envoyée, une ancienne trame a été drop");
+                warn!("TX: frame sent, an older one was dropped");
             }
             None => {
-                info!("TX: frame envoyée (aucun drop)");
+                info!("TX: frame sent, nothing dropped");
             }
         }
     }

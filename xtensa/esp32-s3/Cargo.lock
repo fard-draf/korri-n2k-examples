@@ -1048,14 +1048,14 @@ dependencies = [
 
 [[package]]
 name = "korri-n2k"
-version = "0.4.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2c5fc372ae4c6257f0e08bbe66a6c89ac4d7c591fef6ad3fb146414e53ecf5d"
+checksum = "0f0e574be5ed5a69872a2f6c83d5d06b9bae6ab8226237085f75373b95a45974"
 dependencies = [
+ "defmt 0.3.100",
  "embassy-sync 0.6.2",
- "embassy-time 0.4.0",
- "embedded-can",
  "futures-util",
+ "portable-atomic",
  "serde",
  "serde_json",
  "thiserror",
@@ -1320,7 +1320,6 @@ name = "shared-core"
 version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
- "embassy-sync 0.6.2",
  "embassy-time 0.5.1",
  "korri-n2k",
 ]

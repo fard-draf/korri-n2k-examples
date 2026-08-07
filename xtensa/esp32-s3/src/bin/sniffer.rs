@@ -15,12 +15,12 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channe
 use esp_hal::{
     clock::CpuClock,
     timer::timg::TimerGroup,
-    twai::{filter::SingleStandardFilter, TwaiConfiguration, TwaiMode},
+    twai::{TwaiConfiguration, TwaiMode, filter::SingleStandardFilter},
     usb_serial_jtag::UsbSerialJtag,
 };
 use static_cell::StaticCell;
 
-use esp32_s3::capture::{can_reader, usb_sink, TimestampedFrame, CAPTURE_DEPTH};
+use esp32_s3::capture::{CAPTURE_DEPTH, TimestampedFrame, can_reader, usb_sink};
 use esp32_s3::conf::{N2K_BITRATE, N2K_BITRATE_BPS};
 
 esp_bootloader_esp_idf::esp_app_desc!();

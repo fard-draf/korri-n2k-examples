@@ -14,5 +14,5 @@ rustflags = [
 
 target = "riscv32imc-unknown-none-elf"
 
-[unstable]
-build-std = ["core"]
+# No `build-std`: riscv32imc-unknown-none-elf is tier 2 and ships a precompiled
+# `core`. The ESP32-S3 needs it, this board does not.

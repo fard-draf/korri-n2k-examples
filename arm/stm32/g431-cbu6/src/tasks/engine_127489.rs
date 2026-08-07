@@ -1,6 +1,7 @@
 use super::Handle;
+use shared_core::{publisher::publish, samples::EngineDynamic};
 
 #[embassy_executor::task]
 pub async fn task_engine_127489(handle: Handle) {
-    shared_core::pgns::engine_127489::task_engine_127489(handle).await;
+    publish(handle, EngineDynamic::new()).await;
 }

@@ -1,6 +1,8 @@
 #![no_std]
-
-pub mod pgns;
-pub mod ports;
-pub mod timer;
+#![no_main]
+pub mod app;
+pub mod conf;
 pub mod manager_service;
+pub mod ports;
+pub mod starter;
+pub mod tasks;

@@ -165,6 +165,15 @@ dependencies = [
 
 [[package]]
 name = "defmt"
+version = "0.3.100"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0963443817029b2024136fc4dd07a5107eb8f977eaf18fcd1fdeb11306b64ad"
+dependencies = [
+ "defmt 1.0.1",
+]
+
+[[package]]
+name = "defmt"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "548d977b6da32fa1d1fda2876453da1e7df63ad0304c8b3dae4dbe7b96f39b78"
@@ -202,7 +211,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93d5a25c99d89c40f5676bec8cefe0614f17f0f40e916f98e345dae941807f9e"
 dependencies = [
  "critical-section",
- "defmt",
+ "defmt 1.0.1",
 ]
 
 [[package]]
@@ -223,7 +232,7 @@ dependencies = [
  "embassy-futures",
  "embassy-hal-internal 0.4.0",
  "embassy-sync 0.8.0",
- "embassy-time 0.5.1",
+ "embassy-time",
  "embedded-hal 0.2.7",
  "embedded-hal 1.0.0",
  "embedded-hal-async",
@@ -315,7 +324,7 @@ dependencies = [
  "embassy-hal-internal 0.5.0",
  "embassy-net-driver",
  "embassy-sync 0.8.0",
- "embassy-time 0.5.1",
+ "embassy-time",
  "embassy-time-driver",
  "embassy-time-queue-utils",
  "embassy-usb-driver",
@@ -372,22 +381,6 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "heapless 0.9.3",
-]
-
-[[package]]
-name = "embassy-time"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f820157f198ada183ad62e0a66f554c610cdcd1a9f27d4b316358103ced7a1f8"
-dependencies = [
- "cfg-if",
- "critical-section",
- "document-features",
- "embassy-time-driver",
- "embedded-hal 0.2.7",
- "embedded-hal 1.0.0",
- "embedded-hal-async",
- "futures-util",
 ]
 
 [[package]]
@@ -576,12 +569,12 @@ version = "0.1.0"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
- "defmt",
+ "defmt 1.0.1",
  "defmt-rtt",
  "embassy-executor",
  "embassy-stm32",
  "embassy-sync 0.6.2",
- "embassy-time 0.5.1",
+ "embassy-time",
  "embedded-can",
  "korri-n2k",
  "panic-probe",
@@ -632,14 +625,13 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "korri-n2k"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2c5fc372ae4c6257f0e08bbe66a6c89ac4d7c591fef6ad3fb146414e53ecf5d"
+version = "0.7.0"
+source = "git+https://github.com/fard-draf/korri-n2k?branch=feat%2Fsans-io-core#e19cce8ec0ccc584c765a09e8a4dc7b2db8af0ee"
 dependencies = [
+ "defmt 0.3.100",
  "embassy-sync 0.6.2",
- "embassy-time 0.4.0",
- "embedded-can",
  "futures-util",
+ "portable-atomic",
  "serde",
  "serde_json",
  "thiserror",
@@ -689,7 +681,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd402d00b0fb94c5aee000029204a46884b1262e0c443f166d86d2c0747e1a1a"
 dependencies = [
  "cortex-m",
- "defmt",
+ "defmt 1.0.1",
 ]
 
 [[package]]
@@ -706,9 +698,9 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "portable-atomic"
-version = "1.11.1"
+version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f84267b20a16ea918e43c6a88433c2d54fa145c92a811b5b047ccbe153674483"
+checksum = "3d20d5497ef88037a52ff98267d066e7f11fcc5e99bbfbd58a42336193aacec3"
 
 [[package]]
 name = "proc-macro-error-attr2"
@@ -874,9 +866,8 @@ dependencies = [
 name = "shared-core"
 version = "0.1.0"
 dependencies = [
- "defmt",
- "embassy-sync 0.6.2",
- "embassy-time 0.5.1",
+ "defmt 1.0.1",
+ "embassy-time",
  "korri-n2k",
 ]
 

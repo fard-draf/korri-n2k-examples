@@ -3,7 +3,6 @@
 pub mod app;
 pub mod capture;
 pub mod conf;
-pub mod instances;
 pub mod manager_service;
 pub mod ports;
 pub mod starter;

@@ -7,15 +7,15 @@
 use core::sync::atomic::Ordering;
 
 use defmt::{info, warn};
-use embassy_futures::select::{select, Either};
+use embassy_futures::select::{Either, select};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Receiver};
 use embassy_time::{Duration, Instant, Timer};
 use embedded_io_async::Write;
-use esp_hal::{usb_serial_jtag::UsbSerialJtagTx, Async};
+use esp_hal::{Async, usb_serial_jtag::UsbSerialJtagTx};
 
-use super::frame::{TimestampedFrame, STATS};
-use super::wire::{encode_frame, encode_header, encode_stats, RECORD_SIZE};
 use super::CAPTURE_DEPTH;
+use super::frame::{STATS, TimestampedFrame};
+use super::wire::{RECORD_SIZE, encode_frame, encode_header, encode_stats};
 
 /// Frames per batch, plus room for one header and one stats record.
 const BATCH_FRAMES: usize = 21;
@@ -121,7 +121,7 @@ async fn write_batch(usb: &mut UsbSerialJtagTx<'static, Async>, bytes: &[u8]) {
         return;
     }
 
-    // Without a flush, a partial packet can sit there until the next write —
+    // Without a flush, a partial packet can sit there until the next write,
     // annoying when the bus goes quiet.
     let _ = usb.flush().await;
 }

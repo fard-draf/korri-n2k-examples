@@ -10,13 +10,13 @@ use core::sync::atomic::Ordering;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Sender};
 use embedded_can::{Frame, Id};
 use esp_hal::{
+    Async,
     time::Instant,
     twai::{ErrorKind, EspTwaiError, Twai},
-    Async,
 };
 
-use super::frame::{TimestampedFrame, FLAG_EXTENDED, FLAG_REMOTE, STATS};
 use super::CAPTURE_DEPTH;
+use super::frame::{FLAG_EXTENDED, FLAG_REMOTE, STATS, TimestampedFrame};
 
 /// Two receptions closer than this cannot come from the wire (an extended frame
 /// takes ~600 µs): we are draining a backlog from the esp-hal queue.
