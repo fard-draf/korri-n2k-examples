@@ -133,13 +133,20 @@ The ESP32-S3 needs the `esp` toolchain from `espup`. Everything else is stable.
 
 ```sh
 cd linux/socketcan
-sudo ip link add dev vcan0 type vcan && sudo ip link set up vcan0
-cargo run -- vcan0
+sudo ip link set can0 down
+sudo ip link set can0 type can bitrate 250000
+sudo ip link set can0 up
+cargo run -- can0 3
 ```
 
 It claims an address with `IDENTITY_3`, publishes position, depth and speed, and
 prints what it hears. Same identities and same generators as the boards, so it
-joins their bus as one more node. Use it to test without flashing anything.
+joins their bus as one more node. Pass `1` to `5` after the interface to select
+the matching identity from `shared-core`; identity 3 is the default. Use it to
+test without flashing anything.
+
+Use `vcan0` only for a Linux-only simulation; a virtual interface cannot reach
+the physical bus observed by `claim_watcher`.
 
 `fast_packet` carries `IDENTITY_3` too. Do not run both on one bus.
 `IDENTITY_4` is free if you want a fourth NAME.

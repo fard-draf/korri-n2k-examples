@@ -4,14 +4,13 @@
 //! generators, the same publishing loop. Only the driver and the runtime differ.
 //!
 //! ```bash
-//! sudo ip link add dev vcan0 type vcan && sudo ip link set up vcan0
-//! cargo run -- vcan0
+//! cargo run -- can0 3
 //! ```
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use korri_n2k::protocol::management::address_manager::AddressManager;
 use korri_n2k::protocol::management::address_supervisor::AddressService;
 use korri_n2k::protocol::management::iso_name::IsoName;
@@ -21,17 +20,13 @@ use korri_n2k::protocol::transport::fast_packet::FAST_PACKET_PGNS_ALL;
 use korri_n2k::protocol::transport::fast_packet::assembler::{FastPacketAssembler, ProcessResult};
 use korri_n2k::protocol::transport::traits::can_bus::CanBus;
 use korri_n2k::protocol::transport::traits::korri_timer::{Clock, TokioTimer};
-use shared_core::instances::{IDENTITY_3, IsoIdentity};
+use shared_core::instances::{
+    IDENTITY_1, IDENTITY_2, IDENTITY_3, IDENTITY_4, IDENTITY_5, IsoIdentity,
+};
 use shared_core::publisher::publish;
 use shared_core::samples::{Depth, Position, Speed};
 use socketcan::tokio::CanSocket;
 use socketcan::{CanDataFrame, EmbeddedFrame, ExtendedId, Id};
-
-/// The identity this node claims with.
-///
-/// `fast_packet` carries the same one, so do not run both on one bus. Switch to
-/// `IDENTITY_4` for a NAME no binary uses.
-const IDENTITY: &IsoIdentity = &IDENTITY_3;
 
 /// SocketCAN driver.
 ///
@@ -114,24 +109,37 @@ fn iso_name(identity: &IsoIdentity) -> IsoName {
         .build()
 }
 
+fn identity(number: &str) -> Result<&'static IsoIdentity> {
+    match number {
+        "1" => Ok(&IDENTITY_1),
+        "2" => Ok(&IDENTITY_2),
+        "3" => Ok(&IDENTITY_3),
+        "4" => Ok(&IDENTITY_4),
+        "5" => Ok(&IDENTITY_5),
+        _ => bail!("identity must be 1, 2, 3, 4, or 5; received {number}"),
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let interface = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "can0".to_string());
-    println!("opening {interface}");
+    let mut arguments = std::env::args().skip(1);
+    let interface = arguments.next().unwrap_or_else(|| "can0".to_string());
+    let identity_number = arguments.next().unwrap_or_else(|| "3".to_string());
+    let identity = identity(&identity_number)?;
+
+    println!("opening {interface} with shared-core IDENTITY_{identity_number}");
 
     let bus = SocketCanBus::open(&interface)?;
-    let name = iso_name(IDENTITY);
+    let name = iso_name(identity);
     println!(
         "ISO NAME: 0x{:016X}, strategy {:?}",
         name.raw(),
-        IDENTITY.strategy
+        identity.strategy
     );
 
     // Synchronous. It only fails when the NAME contradicts the strategy, and the
     // identity derives the AAC bit from that strategy, so it cannot.
-    let manager = AddressManager::new(bus, TokioTimer::new(), name, IDENTITY.strategy)
+    let manager = AddressManager::new(bus, TokioTimer::new(), name, identity.strategy)
         .map_err(|fault| anyhow::anyhow!("{fault}"))
         .context("the NAME must match its address claim strategy")?;
 
