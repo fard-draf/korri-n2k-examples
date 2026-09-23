@@ -5,12 +5,15 @@ use embassy_stm32::can::{
 };
 use embassy_time::{Duration, Instant, Timer};
 use embedded_can::Id;
-use korri_n2k::protocol::transport::{
-    can_frame::CanFrame,
-    can_id::CanId,
-    traits::{
-        can_bus::CanBus,
-        korri_timer::{Clock, KorriTimer},
+use korri_n2k::protocol::{
+    constants::{addr_mgmt_pgns::CLAIM_PGN_60928, address::NULL_ADDR_254},
+    transport::{
+        can_frame::CanFrame,
+        can_id::CanId,
+        traits::{
+            can_bus::CanBus,
+            korri_timer::{Clock, KorriTimer},
+        },
     },
 };
 
@@ -75,6 +78,43 @@ impl defmt::Format for Stm32CanError {
     }
 }
 
+fn log_address_claim(direction: &'static str, frame: &CanFrame) {
+    if frame.id.pgn() != CLAIM_PGN_60928 {
+        return;
+    }
+
+    let observed_at_ms = Instant::now().as_millis();
+    let source_address = frame.id.source_address();
+
+    if frame.len < 8 {
+        defmt::warn!(
+            "[{=u64:09} ms] PARAMETER GROUP NUMBER 60928 (ADDRESS CLAIM) {=str} | MALFORMED: {=usize} bytes, expected 8",
+            observed_at_ms,
+            direction,
+            frame.len
+        );
+        return;
+    }
+
+    let requester_name = u64::from_le_bytes(frame.data);
+    if source_address == NULL_ADDR_254 {
+        defmt::warn!(
+            "[{=u64:09} ms] PARAMETER GROUP NUMBER 60928 (ADDRESS CLAIM) {=str} | requested address: NONE (source address 254) | requester ISO NAME: {=u64:#018x}",
+            observed_at_ms,
+            direction,
+            requester_name
+        );
+    } else {
+        defmt::info!(
+            "[{=u64:09} ms] PARAMETER GROUP NUMBER 60928 (ADDRESS CLAIM) {=str} | requested address: {=u8:03} | requester ISO NAME: {=u64:#018x}",
+            observed_at_ms,
+            direction,
+            source_address,
+            requester_name
+        );
+    }
+}
+
 impl<'d, const TX_BUF: usize, const RX_BUF: usize> CanBus for Stm32CanBus<'d, TX_BUF, RX_BUF> {
     type Error = Stm32CanError;
 
@@ -83,6 +123,8 @@ impl<'d, const TX_BUF: usize, const RX_BUF: usize> CanBus for Stm32CanBus<'d, TX
             .map_err(Self::Error::from)?;
         trace!("HAL TX id=0x{=u32:X} len={}", frame.id.0, frame.len);
         self.inner.write(hal_frame).await;
+        log_address_claim("TRANSMITTED", frame);
+
         Ok(())
     }
 
@@ -100,11 +142,13 @@ impl<'d, const TX_BUF: usize, const RX_BUF: usize> CanBus for Stm32CanBus<'d, TX
                     let payload = hal_frame.data();
                     let mut data = [0u8; 8];
                     data[..payload.len()].copy_from_slice(payload);
-                    return Ok(CanFrame {
+                    let frame = CanFrame {
                         id: CanId(raw_id),
                         data,
                         len: payload.len(),
-                    });
+                    };
+                    log_address_claim("RECEIVED", &frame);
+                    return Ok(frame);
                 }
                 Err(err) => {
                     // BusOff: the FDCAN controller disabled itself, unrecoverable.

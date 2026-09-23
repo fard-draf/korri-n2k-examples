@@ -10,14 +10,14 @@ use g431_cbu6::{
     manager_service, tasks,
 };
 use panic_probe as _;
-use shared_core::instances::IDENTITY_2;
+use shared_core::instances::IDENTITY_3;
 
 #[embassy_executor::main]
 async fn main(spawner: embassy_executor::Spawner) {
-    let (runner, handle) = run(&IDENTITY_2);
+    let (runner, handle) = run(&IDENTITY_3);
 
     defmt::info!(
-        "DUAL_RUN_2 | fixed address strategy | higher ISO NAME loses and has no fallback address"
+        "DUAL_RUN_3 | arbitrary address strategy | higher ISO NAME loses and can claim the next one if available"
     );
 
     spawner

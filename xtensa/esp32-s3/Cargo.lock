@@ -1048,9 +1048,9 @@ dependencies = [
 
 [[package]]
 name = "korri-n2k"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f0e574be5ed5a69872a2f6c83d5d06b9bae6ab8226237085f75373b95a45974"
+checksum = "bfac4e8528d5ee34c4fec8a46af904f480c58c36686f5cedc2dc7b88a6d1c39e"
 dependencies = [
  "defmt 0.3.100",
  "embassy-sync 0.6.2",

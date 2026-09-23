@@ -12,14 +12,14 @@ pub use tokio_rt::publish;
 #[cfg(feature = "embassy")]
 mod embassy {
     use crate::samples::Sample;
-    use defmt::{Debug2Format, info, warn};
+    use defmt::{Debug2Format, trace, warn};
     use embassy_time::{Duration, Ticker};
     use korri_n2k::protocol::management::address_supervisor::AddressHandle;
 
     /// Publish `sample` forever, once per `PERIOD_MS`.
     ///
-    /// A refused send is logged and the loop carries on. The runner drops the
-    /// command when no address is held, which is normal during a claim.
+    /// Publishing pauses while no address is held. A refusal racing a later
+    /// address loss is logged and the loop carries on.
     pub async fn publish<S: Sample, const CAP: usize>(
         handle: &'static AddressHandle<'static, CAP>,
         mut sample: S,
@@ -29,10 +29,22 @@ mod embassy {
         loop {
             ticker.next().await;
 
+            let Some(address) = handle.claimed_address() else {
+                continue;
+            };
+
             let data = sample.next();
             match handle.send_pgn(&data, S::PGN, S::PRIORITY, None).await {
-                Ok(()) => info!("PGN {=u32} queued", S::PGN),
-                Err(error) => warn!("PGN {=u32} not queued: {}", S::PGN, Debug2Format(&error)),
+                Ok(()) => trace!(
+                    "Parameter Group Number {=u32} queued from claimed address {=u8}",
+                    S::PGN,
+                    address
+                ),
+                Err(error) => warn!(
+                    "Parameter Group Number {=u32} not queued: {}",
+                    S::PGN,
+                    Debug2Format(&error)
+                ),
             }
         }
     }

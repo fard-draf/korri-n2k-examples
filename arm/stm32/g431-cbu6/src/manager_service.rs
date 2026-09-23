@@ -2,8 +2,10 @@ use crate::conf::{CAN_RX_BUF_DEPTH, CAN_TX_BUF_DEPTH};
 use crate::ports::{Stm32CanBus, Stm32Timer};
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
-use korri_n2k::protocol::management::address_supervisor::{
-    AddressHandle, AddressService, ClaimedAddress, SupervisorCommand,
+use embassy_time::{Duration, Ticker};
+use korri_n2k::protocol::management::{
+    address_claiming::engine::ClaimStatus,
+    address_supervisor::{AddressHandle, AddressService, ClaimedAddress, SupervisorCommand},
 };
 use static_cell::StaticCell;
 
@@ -58,5 +60,39 @@ pub async fn address_manager_task(runner: ManagerRunner) {
     defmt::info!("Address supervisor runner spawned");
     if let Err(err) = runner.drive().await {
         defmt::error!("address management stopped: {}", defmt::Debug2Format(&err));
+    }
+}
+
+/// Report every address-claim state transition without flooding the demo log.
+#[embassy_executor::task]
+pub async fn address_status_task(handle: Handle) {
+    let mut previous_status: Option<Option<ClaimStatus>> = None;
+    let mut ticker = Ticker::every(Duration::from_millis(10));
+
+    loop {
+        ticker.next().await;
+        let status = handle.claim_status();
+        if previous_status == Some(status) {
+            continue;
+        }
+        previous_status = Some(status);
+
+        match status {
+            None => defmt::warn!(
+                "ADDRESS STATE | current address: NONE | claimed address: NONE | status: MANAGER NOT RUNNING"
+            ),
+            Some(ClaimStatus::Claiming(address)) => defmt::info!(
+                "ADDRESS STATE | current address: {=u8:03} | claimed address: NONE | status: CLAIMING (arbitration in progress)",
+                address
+            ),
+            Some(ClaimStatus::Claimed(address)) => defmt::info!(
+                "ADDRESS STATE | current address: {=u8:03} | claimed address: {=u8:03} | status: CLAIMED (normal traffic enabled)",
+                address,
+                address
+            ),
+            Some(ClaimStatus::CannotClaim) => defmt::warn!(
+                "ADDRESS STATE | current address: NONE | claimed address: NONE | status: CANNOT CLAIM (normal traffic disabled)"
+            ),
+        }
     }
 }

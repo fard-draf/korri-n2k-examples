@@ -625,8 +625,9 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "korri-n2k"
-version = "0.7.0"
-source = "git+https://github.com/fard-draf/korri-n2k?branch=feat%2Fsans-io-core#e19cce8ec0ccc584c765a09e8a4dc7b2db8af0ee"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfac4e8528d5ee34c4fec8a46af904f480c58c36686f5cedc2dc7b88a6d1c39e"
 dependencies = [
  "defmt 0.3.100",
  "embassy-sync 0.6.2",

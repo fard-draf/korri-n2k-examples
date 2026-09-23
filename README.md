@@ -107,9 +107,10 @@ The ESP32-S3 adds three more. None of them claims an address.
 | `receiver` | Listens only, and reassembles Fast Packet messages. |
 | `claim_watcher` | Follows the address claiming, node by node. |
 
-`claim_watcher` prints every ISO Address Claim and every ISO Request as it happens.
-It names the actors, decodes their NAME, and says who wins a contested address.
-A bus report follows every 10 seconds: frame rate, errors, claims, conflicts, and the node table.
+`claim_watcher` prints every Address Claim and message request as it happens.
+It explains each field, decodes the 64-bit ISO NAME device identity, and says why
+one device wins a contested address. A bus report follows every 10 seconds:
+frame rate, errors, claims, conflicts, and the device table.
 A node silent for a minute moves to a history section, so the live table stays true.
 
 Flash it on a third board to watch `dual_run_1` and `dual_run_2` fight.
@@ -155,10 +156,10 @@ just decode capture.bin    # decode and print the verdict
 
 ## Dependency
 
-All targets pull korri-n2k 0.7 from crates.io.
+All targets pull korri-n2k 0.7 from crates.io. The address-status demo requires 0.7.1.
 
 ```toml
-korri-n2k = { version = "0.7.0" }
+korri-n2k = { version = "0.7.1" }
 ```
 
 Embedded targets enable the `embassy` feature, the Linux one enables `tokio`.

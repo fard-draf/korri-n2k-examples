@@ -48,3 +48,13 @@ pub fn init_can(p: BspPeripherals) -> Twai<'static, Async> {
     info!("TWAI initialised (250 kbps) on GPIO41(rx)/GPIO42(tx)");
     can
 }
+
+/// Starts the TWAI controller as a passive observer that never acknowledges or transmits.
+pub fn init_can_listen_only(p: BspPeripherals) -> Twai<'static, Async> {
+    let config =
+        TwaiConfiguration::new(p.twai, p.rx, p.tx, N2K_BITRATE, TwaiMode::ListenOnly).into_async();
+
+    let can = config.start();
+    info!("TWAI initialised in listen-only mode (250 kbps) on GPIO41(rx)/GPIO42(tx)");
+    can
+}
