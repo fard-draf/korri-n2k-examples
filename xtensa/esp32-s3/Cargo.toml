@@ -36,6 +36,10 @@ name = "receiver"
 path = "./src/bin/receiver.rs"
 
 [[bin]]
+name = "receiver_actisense"
+path = "./src/bin/receiver_actisense.rs"
+
+[[bin]]
 name = "claim_watcher"
 path = "./src/bin/claim_watcher.rs"
 
